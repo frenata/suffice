@@ -118,8 +118,17 @@ impl TrainerHandle {
         }
     }
 
-    pub async fn set_resistance(self: &Self, level: u8) {
+    pub async fn set_resistance(self: &Self, level: u16) {
         let trainer = self.trainer.lock().await;
+
+        if let Some(range) = &trainer.resistance_range {
+            if level > range.max || level < range.min || level % range.inc != 0 {
+                panic!("out of range")
+            }
+        } else {
+            panic!("cannot set resistance");
+        }
+
         // let data: Vec<u8> = vec![1];
         let res = trainer
             .peri
@@ -144,8 +153,8 @@ impl TrainerHandle {
         let res = trainer
             .peri
             .write(
-                &vec![4, level],
                 trainer.control.as_ref().unwrap(),
+                &vec![4, level as u8], // FIXME: need to send level as a LE byte array
                 WriteType::WithResponse,
             )
             .await;

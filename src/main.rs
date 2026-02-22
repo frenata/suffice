@@ -1,8 +1,5 @@
-use btleplug::api::Peripheral as _;
 use std::env;
 use std::error::Error;
-use std::time::Duration;
-use tokio::time::sleep;
 
 use suffice::trainer::TrainerHandle;
 
