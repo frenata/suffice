@@ -13,6 +13,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // find the device we're interested in
     if let Some(trainer) = find_trainer(target.clone()).await {
         eprint!("{:?}", trainer);
+        trainer.connect().await?;
+        trainer.discover_services().await?;
+        for c in trainer.characteristics() {
+            eprintln!("{:?}", c)
+        }
     } else {
         // eprint!("{:?} not found!", target);
         return Err(format!("{} not found", target).into());
