@@ -1,7 +1,9 @@
 use btleplug::api::{Central, Manager as _, Peripheral as _, ScanFilter};
 use btleplug::api::{Characteristic, WriteType};
 use btleplug::platform::{Manager, Peripheral};
+use std::sync::Arc;
 use std::time::Duration;
+use tokio::sync::Mutex;
 use tokio::time;
 use tokio_stream::StreamExt;
 
@@ -32,8 +34,13 @@ pub struct Trainer {
     control: Option<Characteristic>,
 }
 
-impl Trainer {
-    pub async fn find(target: String) -> Option<Trainer> {
+#[derive(Debug, Clone)]
+pub struct TrainerHandle {
+    pub trainer: Arc<Mutex<Trainer>>,
+}
+
+impl TrainerHandle {
+    pub async fn find(target: String) -> Option<TrainerHandle> {
         let manager = Manager::new().await.unwrap();
 
         // get the first bluetooth adapter
@@ -51,12 +58,13 @@ impl Trainer {
                 if let Some(name) = props.local_name
                     && name == target
                 {
-                    return Some(Trainer {
+                    let trainer = Arc::new(Mutex::new(Trainer {
                         peri: p,
                         resistance_range: None,
                         power_range: None,
                         control: None,
-                    });
+                    }));
+                    return Some(TrainerHandle { trainer });
                 }
             }
         }
@@ -64,19 +72,20 @@ impl Trainer {
         None
     }
 
-    pub async fn connect(self: &mut Trainer) {
-        self.peri.connect().await;
-        self.peri.discover_services().await;
-        for c in self.peri.characteristics() {
+    pub async fn connect(self: &Self) {
+        let mut trainer = self.trainer.lock().await;
+        let _ = trainer.peri.connect().await;
+        let _ = trainer.peri.discover_services().await;
+        for c in trainer.peri.characteristics() {
             if c.uuid == RESISTANCE_RANGE {
-                if let Ok(res) = self.peri.read(&c).await {
-                    self.resistance_range = Some(Range::from_bytes(res));
+                if let Ok(res) = trainer.peri.read(&c).await {
+                    trainer.resistance_range = Some(Range::from_bytes(res));
                 }
             }
 
             if c.uuid == POWER_RANGE {
-                if let Ok(res) = self.peri.read(&c).await {
-                    self.power_range = Some(Range::from_bytes(res));
+                if let Ok(res) = trainer.peri.read(&c).await {
+                    trainer.power_range = Some(Range::from_bytes(res));
                 }
             }
 
@@ -87,68 +96,69 @@ impl Trainer {
             //     eprintln!("{:?}\n", res);
             // }
         }
-        eprintln!("Resistance: {:?}", self.resistance_range);
-        eprintln!("Power: {:?}", self.power_range);
+        eprintln!("Resistance: {:?}", trainer.resistance_range);
+        eprintln!("Power: {:?}", trainer.power_range);
 
-        for c in self.peri.characteristics() {
+        for c in trainer.peri.characteristics() {
             if c.uuid == MACHINE_STATUS {
-                let res = self.peri.subscribe(&c).await;
+                let res = trainer.peri.subscribe(&c).await;
                 eprintln!("Subscribed to machine status: {:?}", res);
             }
 
             if c.uuid == TRAINING_STATUS {
-                let res = self.peri.subscribe(&c).await;
+                let res = trainer.peri.subscribe(&c).await;
                 eprintln!("Subscribed to training status: {:?}", res);
             }
 
             if c.uuid == MACHINE_CONTROL {
-                let res = self.peri.subscribe(&c).await;
-                self.control = Some(c);
+                let res = trainer.peri.subscribe(&c).await;
+                trainer.control = Some(c);
                 eprintln!("Subscribed to control: {:?}", res);
             }
         }
     }
 
     pub async fn set_resistance(self: &Self, level: u8) {
+        let trainer = self.trainer.lock().await;
         // let data: Vec<u8> = vec![1];
-        let res = self
+        let res = trainer
             .peri
             .write(
-                self.control.as_ref().unwrap(),
+                trainer.control.as_ref().unwrap(),
                 &vec![0],
                 WriteType::WithResponse,
             )
             .await;
         eprintln!("{:?}", res);
 
-        let res = self
+        let res = trainer
             .peri
             .write(
-                self.control.as_ref().unwrap(),
+                trainer.control.as_ref().unwrap(),
                 &vec![1],
                 WriteType::WithResponse,
             )
             .await;
         eprintln!("{:?}", res);
 
-        let res = self
+        let res = trainer
             .peri
             .write(
-                self.control.as_ref().unwrap(),
                 &vec![4, level],
+                trainer.control.as_ref().unwrap(),
                 WriteType::WithResponse,
             )
             .await;
         eprintln!("{:?}", res);
     }
 
-    pub async fn handle_notifications(self: &Self) {
-        let get_notif = self.peri.notifications().await;
+    pub async fn notifications(handle: Arc<Mutex<Trainer>>) {
+        let trainer = handle.lock().await;
+
+        let get_notif = trainer.peri.notifications().await;
         if get_notif.is_err() {
             panic!("failed to get notifs")
         }
-
-        self.set_resistance(5).await;
 
         let mut notify = get_notif.unwrap();
         println!("ready for notifs");
