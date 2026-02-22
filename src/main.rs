@@ -11,11 +11,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // find the device we're interested in
     if let Some(trainer) = Trainer::find(target.clone()).await {
         eprint!("{:?}", trainer);
-        trainer.peri.connect().await?;
-        trainer.peri.discover_services().await?;
-        for c in trainer.peri.characteristics() {
-            eprintln!("{:?}", c)
-        }
+        trainer.connect().await;
     } else {
         // eprint!("{:?} not found!", target);
         return Err(format!("{} not found", target).into());

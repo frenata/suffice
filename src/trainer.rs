@@ -6,7 +6,7 @@ use uuid::Uuid;
 
 #[derive(Debug)]
 pub struct Trainer {
-    pub peri: Peripheral,
+    peri: Peripheral,
 }
 
 impl Trainer {
@@ -34,5 +34,13 @@ impl Trainer {
         }
 
         None
+    }
+
+    pub async fn connect(self: &Trainer) {
+        self.peri.connect().await;
+        self.peri.discover_services().await;
+        for c in self.peri.characteristics() {
+            eprintln!("{:?}", c)
+        }
     }
 }
