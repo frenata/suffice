@@ -1,5 +1,6 @@
 use btleplug::api::{Central, Manager as _, Peripheral as _, ScanFilter, bleuuid::uuid_from_u16};
 use btleplug::platform::{Adapter, Manager, Peripheral};
+use std::env;
 use std::error::Error;
 use std::time::Duration;
 use tokio::time;
@@ -7,14 +8,19 @@ use uuid::Uuid;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
+    let args: Vec<String> = env::args().collect();
+    let target = args[1].clone();
     // find the device we're interested in
-    if let Some(trainer) = find_trainer("Victory").await {
+    if let Some(trainer) = find_trainer(target.clone()).await {
         eprint!("{:?}", trainer);
+    } else {
+        // eprint!("{:?} not found!", target);
+        return Err(format!("{} not found", target).into());
     }
     Ok(())
 }
 
-async fn find_trainer(target: &str) -> Option<Peripheral> {
+async fn find_trainer(target: String) -> Option<Peripheral> {
     let manager = Manager::new().await.unwrap();
 
     // get the first bluetooth adapter
@@ -28,8 +34,10 @@ async fn find_trainer(target: &str) -> Option<Peripheral> {
     time::sleep(Duration::from_secs(2)).await;
     for p in central.peripherals().await.ok()? {
         if let Some(props) = p.properties().await.ok()? {
-            // eprint!("{:?}", props.local_name);
-            if let Some(name) = props.local_name {
+            // eprintln!("{:?}", props.local_name);
+            if let Some(name) = props.local_name
+                && name == target
+            {
                 return Some(p);
             }
         }
