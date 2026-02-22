@@ -1,6 +1,8 @@
 use btleplug::api::Peripheral as _;
 use std::env;
 use std::error::Error;
+use std::time::Duration;
+use tokio::time::sleep;
 
 use suffice::trainer::Trainer;
 
@@ -12,6 +14,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     if let Some(mut trainer) = Trainer::find(target.clone()).await {
         eprintln!("{:?}\n", trainer);
         trainer.connect().await;
+        trainer.handle_notifications().await;
     } else {
         // eprint!("{:?} not found!", target);
         return Err(format!("{} not found", target).into());

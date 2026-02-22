@@ -1,7 +1,9 @@
+use btleplug::api::WriteType;
 use btleplug::api::{Central, Manager as _, Peripheral as _, ScanFilter, bleuuid::uuid_from_u16};
 use btleplug::platform::{Manager, Peripheral};
 use std::time::Duration;
 use tokio::time;
+use tokio_stream::StreamExt;
 use uuid::Uuid;
 
 use crate::ftms::*;
@@ -86,6 +88,30 @@ impl Trainer {
         }
         eprintln!("Resistance: {:?}", self.resistance_range);
         eprintln!("Power: {:?}", self.power_range);
+
+        for c in self.peri.characteristics() {
+            if c.uuid == MACHINE_STATUS {
+                let res = self.peri.subscribe(&c).await;
+                eprintln!("{:?}", res);
+            }
+
+            if c.uuid == TRAINING_STATUS {
+                let res = self.peri.subscribe(&c).await;
+                eprintln!("{:?}", res);
+            }
+        }
+    }
+
+    pub async fn handle_notifications(self: &Self) {
+        let get_notif = self.peri.notifications().await;
+        if get_notif.is_err() {
+            panic!("failed to get notifs")
+        }
+
+        let mut notify = get_notif.unwrap();
+        println!("ready for notifs");
+        while let Some(v) = notify.next().await {
+            println!("GOT = {:?}", v);
         }
     }
 }

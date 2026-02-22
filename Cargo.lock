@@ -763,6 +763,7 @@ dependencies = [
  "btleplug",
  "rand",
  "tokio",
+ "tokio-stream",
  "uuid",
 ]
 
