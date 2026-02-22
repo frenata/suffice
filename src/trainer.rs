@@ -1,10 +1,9 @@
-use btleplug::api::WriteType;
-use btleplug::api::{Central, Manager as _, Peripheral as _, ScanFilter, bleuuid::uuid_from_u16};
+use btleplug::api::{Central, Manager as _, Peripheral as _, ScanFilter};
+use btleplug::api::{Characteristic, WriteType};
 use btleplug::platform::{Manager, Peripheral};
 use std::time::Duration;
 use tokio::time;
 use tokio_stream::StreamExt;
-use uuid::Uuid;
 
 use crate::ftms::*;
 
@@ -30,6 +29,7 @@ pub struct Trainer {
     peri: Peripheral,
     resistance_range: Option<Range>,
     power_range: Option<Range>,
+    control: Option<Characteristic>,
 }
 
 impl Trainer {
@@ -55,6 +55,7 @@ impl Trainer {
                         peri: p,
                         resistance_range: None,
                         power_range: None,
+                        control: None,
                     });
                 }
             }
@@ -92,14 +93,53 @@ impl Trainer {
         for c in self.peri.characteristics() {
             if c.uuid == MACHINE_STATUS {
                 let res = self.peri.subscribe(&c).await;
-                eprintln!("{:?}", res);
+                eprintln!("Subscribed to machine status: {:?}", res);
             }
 
             if c.uuid == TRAINING_STATUS {
                 let res = self.peri.subscribe(&c).await;
-                eprintln!("{:?}", res);
+                eprintln!("Subscribed to training status: {:?}", res);
+            }
+
+            if c.uuid == MACHINE_CONTROL {
+                let res = self.peri.subscribe(&c).await;
+                self.control = Some(c);
+                eprintln!("Subscribed to control: {:?}", res);
             }
         }
+    }
+
+    pub async fn set_resistance(self: &Self, level: u8) {
+        // let data: Vec<u8> = vec![1];
+        let res = self
+            .peri
+            .write(
+                self.control.as_ref().unwrap(),
+                &vec![0],
+                WriteType::WithResponse,
+            )
+            .await;
+        eprintln!("{:?}", res);
+
+        let res = self
+            .peri
+            .write(
+                self.control.as_ref().unwrap(),
+                &vec![1],
+                WriteType::WithResponse,
+            )
+            .await;
+        eprintln!("{:?}", res);
+
+        let res = self
+            .peri
+            .write(
+                self.control.as_ref().unwrap(),
+                &vec![4, level],
+                WriteType::WithResponse,
+            )
+            .await;
+        eprintln!("{:?}", res);
     }
 
     pub async fn handle_notifications(self: &Self) {
@@ -107,6 +147,8 @@ impl Trainer {
         if get_notif.is_err() {
             panic!("failed to get notifs")
         }
+
+        self.set_resistance(5).await;
 
         let mut notify = get_notif.unwrap();
         println!("ready for notifs");

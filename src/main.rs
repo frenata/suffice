@@ -14,6 +14,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
     if let Some(mut trainer) = Trainer::find(target.clone()).await {
         eprintln!("{:?}\n", trainer);
         trainer.connect().await;
+        // trainer.set_resistance(5);
+
+        // TODO: make this spawn in a thread
+        // Requires 'Trainer' to be in an Arc ref
         trainer.handle_notifications().await;
     } else {
         // eprint!("{:?} not found!", target);
