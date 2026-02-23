@@ -19,5 +19,8 @@ enter: up
 lint: up
   {{runner}} cargo clippy --no-deps
 
+test: up
+  {{runner}} cargo test
+
 clean:
   docker compose down
