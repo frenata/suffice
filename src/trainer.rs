@@ -9,6 +9,11 @@ use tokio_stream::StreamExt;
 
 use crate::ftms::*;
 
+pub enum Command {
+    Resist(u8),
+    Power(i16),
+}
+
 #[derive(Debug)]
 struct Range {
     min: u16,
@@ -32,6 +37,92 @@ pub struct Trainer {
     resistance_range: Option<Range>,
     power_range: Option<Range>,
     control: Option<Characteristic>,
+}
+
+impl Trainer {
+    pub async fn set_resistance(self: &Self, level: u8) {
+        // if let Some(range) = &trainer.resistance_range {
+        //     if level > range.max || level < range.min || level % range.inc != 0 {
+        //         panic!("out of range")
+        //     }
+        // } else {
+        //     panic!("cannot set resistance");
+        // }
+
+        // let data: Vec<u8> = vec![1];
+        let res = self
+            .peri
+            .write(
+                self.control.as_ref().unwrap(),
+                &vec![0],
+                WriteType::WithResponse,
+            )
+            .await;
+        eprintln!("{:?}", res);
+
+        let res = self
+            .peri
+            .write(
+                self.control.as_ref().unwrap(),
+                &vec![1],
+                WriteType::WithResponse,
+            )
+            .await;
+        eprintln!("{:?}", res);
+
+        let res = self
+            .peri
+            .write(
+                self.control.as_ref().unwrap(),
+                &vec![4, level], // FIXME: need to send level as a LE byte array
+                WriteType::WithResponse,
+            )
+            .await;
+        eprintln!("{:?}", res);
+    }
+
+    pub async fn set_power(self: &Self, level: i16) {
+        // if let Some(range) = &trainer.resistance_range {
+        //     if level > range.max || level < range.min || level % range.inc != 0 {
+        //         panic!("out of range")
+        //     }
+        // } else {
+        //     panic!("cannot set resistance");
+        // }
+
+        // let data: Vec<u8> = vec![1];
+        let res = self
+            .peri
+            .write(
+                self.control.as_ref().unwrap(),
+                &vec![0],
+                WriteType::WithResponse,
+            )
+            .await;
+        eprintln!("{:?}", res);
+
+        let res = self
+            .peri
+            .write(
+                self.control.as_ref().unwrap(),
+                &vec![1],
+                WriteType::WithResponse,
+            )
+            .await;
+        eprintln!("{:?}", res);
+
+        let mut data = i16::to_le_bytes(level).to_vec();
+        data.insert(0, 5);
+        let res = self
+            .peri
+            .write(
+                self.control.as_ref().unwrap(),
+                &data,
+                WriteType::WithResponse,
+            )
+            .await;
+        eprintln!("{:?}", res);
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -114,54 +205,15 @@ impl TrainerHandle {
                 let res = trainer.peri.subscribe(&c).await;
                 trainer.control = Some(c);
                 eprintln!("Subscribed to control: {:?}", res);
+            } else if c.uuid == BIKE_DATA {
+                let res = trainer.peri.subscribe(&c).await;
+                trainer.control = Some(c);
+                eprintln!("Subscribed to bike data: {:?}", res);
             }
         }
     }
 
-    pub async fn set_resistance(self: &Self, level: u16) {
-        let trainer = self.trainer.lock().await;
-
-        if let Some(range) = &trainer.resistance_range {
-            if level > range.max || level < range.min || level % range.inc != 0 {
-                panic!("out of range")
-            }
-        } else {
-            panic!("cannot set resistance");
-        }
-
-        // let data: Vec<u8> = vec![1];
-        let res = trainer
-            .peri
-            .write(
-                trainer.control.as_ref().unwrap(),
-                &vec![0],
-                WriteType::WithResponse,
-            )
-            .await;
-        eprintln!("{:?}", res);
-
-        let res = trainer
-            .peri
-            .write(
-                trainer.control.as_ref().unwrap(),
-                &vec![1],
-                WriteType::WithResponse,
-            )
-            .await;
-        eprintln!("{:?}", res);
-
-        let res = trainer
-            .peri
-            .write(
-                trainer.control.as_ref().unwrap(),
-                &vec![4, level as u8], // FIXME: need to send level as a LE byte array
-                WriteType::WithResponse,
-            )
-            .await;
-        eprintln!("{:?}", res);
-    }
-
-    pub async fn notifications(handle: Arc<Mutex<Trainer>>) {
+    pub async fn run(handle: Arc<Mutex<Trainer>>, mut rx: tokio::sync::mpsc::Receiver<Command>) {
         let trainer = handle.lock().await;
 
         let get_notif = trainer.peri.notifications().await;
@@ -169,10 +221,22 @@ impl TrainerHandle {
             panic!("failed to get notifs")
         }
 
-        let mut notify = get_notif.unwrap();
+        let mut notify = get_notif
+            .unwrap()
+            .timeout_repeating(tokio::time::interval(Duration::from_secs(1)));
         println!("ready for notifs");
-        while let Some(v) = notify.next().await {
-            println!("GOT = {:?}", v);
+
+        loop {
+            if let Ok(Some(v)) = notify.try_next().await {
+                println!("GOT = {:?}", v);
+            }
+
+            if let Ok(c) = rx.try_recv() {
+                match c {
+                    Command::Resist(level) => trainer.set_resistance(level).await,
+                    Command::Power(level) => trainer.set_power(level).await,
+                }
+            }
         }
     }
 }

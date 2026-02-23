@@ -1,7 +1,8 @@
-use std::env;
 use std::error::Error;
+use std::{env, time::Duration};
 
-use suffice::trainer::TrainerHandle;
+use suffice::trainer::{Command, TrainerHandle};
+use tokio::{sync::mpsc, time::sleep};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -11,15 +12,38 @@ async fn main() -> Result<(), Box<dyn Error>> {
     if let Some(trainer) = TrainerHandle::find(target.clone()).await {
         eprintln!("{:?}\n", trainer);
         trainer.connect().await;
+        let (tx, rx) = mpsc::channel(32);
+        let tx2 = tx.clone();
+        let tx3 = tx.clone();
 
         let inner = trainer.trainer.clone();
         tokio::spawn(async move {
-            TrainerHandle::notifications(inner).await;
+            TrainerHandle::run(inner, rx).await;
         });
 
-        trainer.set_resistance(5).await;
-        trainer.set_resistance(20).await;
-        trainer.set_resistance(5).await;
+        sleep(Duration::from_secs(5)).await;
+
+        tokio::spawn(async move {
+            tx.send(Command::Power(225)).await.unwrap();
+        });
+
+        sleep(Duration::from_secs(25)).await;
+
+        tokio::spawn(async move {
+            tx2.clone().send(Command::Power(100)).await.unwrap();
+        });
+
+        sleep(Duration::from_secs(25)).await;
+
+        tokio::spawn(async move {
+            tx3.clone().send(Command::Power(180)).await.unwrap();
+        });
+
+        sleep(Duration::from_secs(25)).await;
+
+        // trainer.set_resistance(5).await;
+        // trainer.set_resistance(20).await;
+        // trainer.set_resistance(5).await;
     } else {
         // eprint!("{:?} not found!", target);
         return Err(format!("{} not found", target).into());

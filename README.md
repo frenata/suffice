@@ -17,7 +17,7 @@ Why run elaborate gamified systems in the background, when it *suffice*s to set 
 
 ## Roadmap
 
-* [ ] properly wrap the Trainer in an Arc and handle notifications in a thread
+* [x] properly wrap the Trainer in an Arc and handle notifications in a thread
 * [ ] basic REPL controls
 * [ ] capture basic sensor data: power, speed, cadence and display it
 * [ ] make sure ERG and Level mode seem to work
