@@ -11,7 +11,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     if let Some(trainer) = TrainerHandle::find(target.clone()).await {
         eprintln!("{:?}\n", trainer);
         trainer.connect().await;
-        let (tx, rx) = mpsc::channel(32);
+        let (tx, rx) = mpsc::unbounded_channel();
         let tx2 = tx.clone();
         let tx3 = tx.clone();
 
@@ -23,20 +23,20 @@ async fn main() -> Result<(), Box<dyn Error>> {
         sleep(Duration::from_secs(5)).await;
 
         tokio::spawn(async move {
-            tx.send(Command::Reset).await.unwrap();
-            tx.send(Command::Resist(2)).await.unwrap();
+            tx.send(Command::Reset);
+            tx.send(Command::Resist(2));
         });
 
         sleep(Duration::from_secs(25)).await;
 
         tokio::spawn(async move {
-            tx2.clone().send(Command::Resist(34)).await.unwrap();
+            tx2.clone().send(Command::Resist(34));
         });
 
         sleep(Duration::from_secs(25)).await;
 
         tokio::spawn(async move {
-            tx3.clone().send(Command::Resist(15)).await.unwrap();
+            tx3.clone().send(Command::Resist(15));
         });
 
         sleep(Duration::from_secs(25)).await;

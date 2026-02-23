@@ -1,7 +1,10 @@
 use std::env;
+use std::error::Error;
 use std::io;
 
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind};
+use ratatui::Terminal;
+use ratatui::prelude::CrosstermBackend;
 use ratatui::{
     DefaultTerminal, Frame,
     buffer::Buffer,
@@ -11,8 +14,10 @@ use ratatui::{
     text::{Line, Text},
     widgets::{Block, Paragraph, Widget},
 };
+use tokio_stream::StreamExt;
 
 use suffice::trainer::{Command, TrainerHandle};
+use tokio::sync::mpsc;
 
 #[derive(Debug, Default)]
 enum Mode {
@@ -27,21 +32,18 @@ pub struct App {
     power: i16,
     exit: bool,
     mode: Mode,
+    to_trainer: Option<mpsc::UnboundedSender<Command>>,
 }
 
 impl App {
-    pub fn run(&mut self, terminal: &mut DefaultTerminal) -> io::Result<()> {
-        let args: Vec<String> = env::args().collect();
-        let target = args[1].clone();
-        // if let Some(trainer) = TrainerHandle::find(target.clone()).await {
-        //     eprintln!("{:?}\n", trainer);
-        //     trainer.connect().await;
-        // } else {
-        //     // return Err(format!("{} not found", target).into());
-        //     // return Err(format!("{} not found", target).into());
-        //     return Ok(());
-        // }
-
+    pub async fn run(
+        &mut self,
+        terminal: &mut DefaultTerminal,
+        mut trainer: TrainerHandle,
+        tx: mpsc::UnboundedSender<Command>,
+    ) -> io::Result<()> {
+        self.to_trainer = Some(tx);
+        self.to_trainer.as_ref().expect("").send(Command::Reset);
         while !self.exit {
             terminal.draw(|frame| self.draw(frame))?;
             self.handle_events()?;
@@ -73,6 +75,23 @@ impl App {
             KeyCode::Right => self.change_mode(1),
             KeyCode::Left => self.change_mode(-1),
             _ => {}
+        }
+
+        match self.mode {
+            Mode::Power => {
+                self.to_trainer.as_ref().expect("").send(Command::Reset);
+                self.to_trainer
+                    .as_ref()
+                    .expect("")
+                    .send(Command::Power(self.power));
+            }
+            Mode::Resistance => {
+                self.to_trainer.as_ref().expect("").send(Command::Reset);
+                self.to_trainer
+                    .as_ref()
+                    .expect("")
+                    .send(Command::Resist((self.resistance as u8).into()));
+            }
         }
     }
 
@@ -129,37 +148,87 @@ impl Widget for &App {
     }
 }
 
-fn main() -> io::Result<()> {
-    ratatui::run(|terminal| App::default().run(terminal))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use ratatui::style::Style;
-
-    #[test]
-    fn render() {
-        let app = App::default();
-        let mut buf = Buffer::empty(Rect::new(0, 0, 50, 4));
-
-        app.render(buf.area, &mut buf);
-
-        let mut expected = Buffer::with_lines(vec![
-            "┏━━━━━━━━━━━━━━ -= It Suffices =- ━━━━━━━━━━━━━━━┓",
-            "┃                  Resistance: 0                 ┃",
-            "┃                                                ┃",
-            "┗━━━━━━━━ More <Up> Less <Down> Quit <Q> ━━━━━━━━┛",
-        ]);
-        let title_style = Style::new().bold();
-        let counter_style = Style::new().yellow();
-        let key_style = Style::new().blue().bold();
-        expected.set_style(Rect::new(15, 0, 19, 1), title_style);
-        expected.set_style(Rect::new(31, 1, 1, 1), counter_style);
-        expected.set_style(Rect::new(15, 3, 4, 1), key_style);
-        expected.set_style(Rect::new(25, 3, 6, 1), key_style);
-        expected.set_style(Rect::new(37, 3, 4, 1), key_style);
-
-        assert_eq!(buf, expected);
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn Error>> {
+    let args: Vec<String> = env::args().collect();
+    let target = args[1].clone();
+    let trainer = TrainerHandle::find(target.clone()).await;
+    if trainer.is_none() {
+        return Err(format!("{} not found", target).into());
     }
+    let trainer = trainer.unwrap();
+    trainer.connect().await;
+
+    // let backend = CrosstermBackend::new(io::stdout());
+    // let mut terminal = Terminal::new(backend)?;
+    //
+    // let mut app = App::default();
+    // app.init_terminal()?;
+    let (tx, mut rx) = mpsc::unbounded_channel::<Command>();
+    let inner = trainer.trainer.clone();
+    tokio::spawn(async move {
+        TrainerHandle::run(inner, rx).await;
+    });
+
+    // let mut event_stream = event::EventStream::new();
+    // tokio::spawn(async move {
+    //     loop {
+    //         tokio::select! {
+    //             maybe_ev = event_stream.next() => {
+    //                 let ev = match maybe_ev {
+    //                     None => break,
+    //                     Some(Err(_)) => break,
+    //                     Some(Ok(e)) => e,
+    //                 };
+    //                 // if tx.send(AppEvent::Input(ev)).await.is_err() {
+    //                 //     break;
+    //                 // }
+    //             }
+    //         }
+    //     }
+    // });
+
+    let mut term = ratatui::init();
+    let mut app = App::default();
+    // ratatui::run(|terminal| app.run(terminal));
+    // Ok(())
+    let res = app
+        .run(&mut term, trainer, tx.clone())
+        .await
+    //     // .inspect_err(|e| tracing::error!("Error in main event loop: {}", e))
+    ;
+    ratatui::restore();
+    // drop(app);
+    Ok(res?)
 }
+
+// #[cfg(test)]
+// mod tests {
+//     use super::*;
+//     use ratatui::style::Style;
+//
+//     #[test]
+//     fn render() {
+//         let app = App::default();
+//         let mut buf = Buffer::empty(Rect::new(0, 0, 50, 4));
+//
+//         app.render(buf.area, &mut buf);
+//
+//         let mut expected = Buffer::with_lines(vec![
+//             "┏━━━━━━━━━━━━━━ -= It Suffices =- ━━━━━━━━━━━━━━━┓",
+//             "┃                  Resistance: 0                 ┃",
+//             "┃                                                ┃",
+//             "┗━━━━━━━━ More <Up> Less <Down> Quit <Q> ━━━━━━━━┛",
+//         ]);
+//         let title_style = Style::new().bold();
+//         let counter_style = Style::new().yellow();
+//         let key_style = Style::new().blue().bold();
+//         expected.set_style(Rect::new(15, 0, 19, 1), title_style);
+//         expected.set_style(Rect::new(31, 1, 1, 1), counter_style);
+//         expected.set_style(Rect::new(15, 3, 4, 1), key_style);
+//         expected.set_style(Rect::new(25, 3, 6, 1), key_style);
+//         expected.set_style(Rect::new(37, 3, 4, 1), key_style);
+//
+//         assert_eq!(buf, expected);
+//     }
+// }

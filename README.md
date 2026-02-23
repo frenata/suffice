@@ -18,7 +18,7 @@ Why run elaborate gamified systems in the background, when it *suffice*s to set 
 ## Roadmap
 
 * [x] properly wrap the Trainer in an Arc and handle notifications in a thread
-* [ ] basic REPL controls
+* [x] basic REPL controls
 * [x] capture basic sensor data: power, speed, cadence
   * [ ] and display it usefully
 * [x] make sure ERG and Level mode seem to work
@@ -33,3 +33,4 @@ Why run elaborate gamified systems in the background, when it *suffice*s to set 
 * examples from the key rust BLE library [btleplug](https://github.com/deviceplug/btleplug/blob/master/examples/subscribe_notify_characteristic.rs)
 * the tokio [examples](https://tokio.rs/tokio/tutorial/shared-state) -- quite useful in the many false starts at working out how to deal with the fundamentally async nature of the system
 * not directly relevant, but a fascinating blog post on [*creating* a FTMS](https://ftmsemu.github.io/)
+* [making sense](https://github.com/caelansar/termirs/blob/master/src/main.rs) of tokio + ratatui

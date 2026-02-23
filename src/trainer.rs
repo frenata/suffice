@@ -194,7 +194,10 @@ impl TrainerHandle {
         }
     }
 
-    pub async fn run(handle: Arc<Mutex<Trainer>>, mut rx: tokio::sync::mpsc::Receiver<Command>) {
+    pub async fn run(
+        handle: Arc<Mutex<Trainer>>,
+        mut rx: tokio::sync::mpsc::UnboundedReceiver<Command>,
+    ) {
         let trainer = handle.lock().await;
 
         let get_notif = trainer.peri.notifications().await;
@@ -205,11 +208,11 @@ impl TrainerHandle {
         let mut notify = get_notif
             .unwrap()
             .timeout_repeating(tokio::time::interval(Duration::from_secs(1)));
-        println!("ready for notifs");
+        eprintln!("ready for notifs");
 
         loop {
             if let Ok(Some(v)) = notify.try_next().await {
-                println!("GOT = {:?}", v);
+                eprintln!("GOT = {:?}", v);
             }
 
             if let Ok(c) = rx.try_recv() {
