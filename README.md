@@ -19,8 +19,17 @@ Why run elaborate gamified systems in the background, when it *suffice*s to set 
 
 * [x] properly wrap the Trainer in an Arc and handle notifications in a thread
 * [ ] basic REPL controls
-* [ ] capture basic sensor data: power, speed, cadence and display it
-* [ ] make sure ERG and Level mode seem to work
+* [x] capture basic sensor data: power, speed, cadence
+  * [ ] and display it usefully
+* [x] make sure ERG and Level mode seem to work
 * [ ] record sessions in FIT files
 * [ ] implement daemon mode
 * [ ] starship integration
+
+## Resources Used
+
+* the official [FTMS spec](https://www.bluetooth.org/DocMan/handlers/DownloadDoc.ashx?doc_id=423422)
+* relevant prior art in python: [pycycling](https://github.com/zacharyedwardbull/pycycling/blob/master/examples/fitness_machine_service_example.py) the underlying BLE library [bleak](https://github.com/hbldh/bleak) and some useful info about the [trainer](https://github.com/zacharyedwardbull/pycycling/issues/47) I was developing against
+* examples from the key rust BLE library [btleplug](https://github.com/deviceplug/btleplug/blob/master/examples/subscribe_notify_characteristic.rs)
+* the tokio [examples](https://tokio.rs/tokio/tutorial/shared-state) -- quite useful in the many false starts at working out how to deal with the fundamentally async nature of the system
+* not directly relevant, but a fascinating blog post on [*creating* a FTMS](https://ftmsemu.github.io/)
