@@ -10,7 +10,8 @@ use tokio_stream::StreamExt;
 use crate::ftms::*;
 
 pub enum Command {
-    Resist(u8),
+    Reset,
+    Resist(u16),
     Power(i16),
 }
 
@@ -40,16 +41,11 @@ pub struct Trainer {
 }
 
 impl Trainer {
-    pub async fn set_resistance(self: &Self, level: u8) {
-        // if let Some(range) = &trainer.resistance_range {
-        //     if level > range.max || level < range.min || level % range.inc != 0 {
-        //         panic!("out of range")
-        //     }
-        // } else {
-        //     panic!("cannot set resistance");
-        // }
+    pub async fn reset(self: &Self) {
+        // 1. Request Control
+        // 2. Reset params (which gives up control!)
+        // 3. Request Control again!
 
-        // let data: Vec<u8> = vec![1];
         let res = self
             .peri
             .write(
@@ -74,7 +70,21 @@ impl Trainer {
             .peri
             .write(
                 self.control.as_ref().unwrap(),
-                &vec![4, level], // FIXME: need to send level as a LE byte array
+                &vec![0],
+                WriteType::WithResponse,
+            )
+            .await;
+        eprintln!("{:?}", res);
+    }
+
+    pub async fn set_resistance(self: &Self, level: u16) {
+        let mut data = u16::to_le_bytes(level).to_vec();
+        data.insert(0, 4);
+        let res = self
+            .peri
+            .write(
+                self.control.as_ref().unwrap(),
+                &data,
                 WriteType::WithResponse,
             )
             .await;
@@ -82,35 +92,6 @@ impl Trainer {
     }
 
     pub async fn set_power(self: &Self, level: i16) {
-        // if let Some(range) = &trainer.resistance_range {
-        //     if level > range.max || level < range.min || level % range.inc != 0 {
-        //         panic!("out of range")
-        //     }
-        // } else {
-        //     panic!("cannot set resistance");
-        // }
-
-        // let data: Vec<u8> = vec![1];
-        let res = self
-            .peri
-            .write(
-                self.control.as_ref().unwrap(),
-                &vec![0],
-                WriteType::WithResponse,
-            )
-            .await;
-        eprintln!("{:?}", res);
-
-        let res = self
-            .peri
-            .write(
-                self.control.as_ref().unwrap(),
-                &vec![1],
-                WriteType::WithResponse,
-            )
-            .await;
-        eprintln!("{:?}", res);
-
         let mut data = i16::to_le_bytes(level).to_vec();
         data.insert(0, 5);
         let res = self
@@ -233,6 +214,7 @@ impl TrainerHandle {
 
             if let Ok(c) = rx.try_recv() {
                 match c {
+                    Command::Reset => trainer.reset().await,
                     Command::Resist(level) => trainer.set_resistance(level).await,
                     Command::Power(level) => trainer.set_power(level).await,
                 }
