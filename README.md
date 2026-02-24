@@ -13,7 +13,7 @@
 * a persistent UI, HUD, etc.
 * non-cycling machines
 
-## Roadmap
+## Feature Roadmap
 
 * [x] properly wrap the Trainer in an Arc and handle notifications in a thread
 * [x] basic REPL controls
@@ -23,6 +23,14 @@
 * [ ] record sessions in FIT files
 * [ ] implement daemon mode
 * [ ] starship integration
+
+## DevEx Roadmap
+
+* [ ] tests and measuring test coverage
+* [ ] CI checks
+* [ ] crates.io publication
+* [ ] tokio tracing logs
+* [ ] better error handling generally instead of reckless unwraps everywhere
 
 ## Resources Used
 
