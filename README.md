@@ -1,7 +1,5 @@
 # Suffice
 
-Why run elaborate gamified systems in the background, when it *suffice*s to set an ERG target and sweat?
-
 *Suffice* is a terminal-based tool for controlling a cycling trainer, so you can pound pedals while peddling code.
 
 ## Goals
