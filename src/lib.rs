@@ -1,2 +1,2 @@
-mod ftms;
+pub mod ftms;
 pub mod trainer;

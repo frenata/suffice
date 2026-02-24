@@ -20,7 +20,7 @@ Why run elaborate gamified systems in the background, when it *suffice*s to set 
 * [x] properly wrap the Trainer in an Arc and handle notifications in a thread
 * [x] basic REPL controls
 * [x] capture basic sensor data: power, speed, cadence
-  * [ ] and display it usefully
+  * [x] and display it usefully
 * [x] make sure ERG and Level mode seem to work
 * [ ] record sessions in FIT files
 * [ ] implement daemon mode

@@ -1,8 +1,11 @@
 use std::env;
 use std::error::Error;
 use std::io;
+use std::time::Duration;
 
+use average::{Estimate, Mean};
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind};
+use fixed_deque::Deque;
 use ratatui::Terminal;
 use ratatui::prelude::CrosstermBackend;
 use ratatui::{
@@ -14,16 +17,63 @@ use ratatui::{
     text::{Line, Text},
     widgets::{Block, Paragraph, Widget},
 };
+use suffice::ftms::BikeData;
 use tokio_stream::StreamExt;
 
-use suffice::trainer::{Command, TrainerHandle};
-use tokio::sync::mpsc;
+use suffice::trainer::{self, Command, TrainerHandle};
+use tokio::sync::{broadcast, mpsc};
 
 #[derive(Debug, Default)]
 enum Mode {
     Power,
     #[default]
     Resistance,
+}
+
+#[derive(Debug)]
+struct Stats {
+    power: fixed_deque::Deque<i16>,
+    cadence: fixed_deque::Deque<u8>,
+    heart_rate: fixed_deque::Deque<u8>,
+}
+
+impl Stats {
+    fn rolling_power(&self, n: usize) -> f64 {
+        let m: Mean = self.power.iter().rev().take(n).map(|n| *n as f64).collect();
+        m.mean()
+    }
+
+    fn rolling_cadence(&self, n: usize) -> f64 {
+        let m: Mean = self
+            .cadence
+            .iter()
+            .rev()
+            .take(n)
+            .map(|n| *n as f64)
+            .collect();
+        m.mean()
+    }
+
+    fn rolling_heart_rate(&self, n: usize) -> f64 {
+        let m: Mean = self
+            .heart_rate
+            .iter()
+            .rev()
+            .take(n)
+            .map(|n| *n as f64)
+            .collect();
+        m.mean()
+    }
+}
+
+impl Default for Stats {
+    fn default() -> Self {
+        Stats {
+            power: Deque::new(30),
+            cadence: Deque::new(30),
+            heart_rate: Deque::new(30),
+        }
+    }
 }
 
 #[derive(Debug, Default)]
@@ -33,6 +83,8 @@ pub struct App {
     exit: bool,
     mode: Mode,
     to_trainer: Option<mpsc::UnboundedSender<Command>>,
+    from_trainer: Option<broadcast::Receiver<BikeData>>,
+    stats: Stats,
 }
 
 impl App {
@@ -40,9 +92,11 @@ impl App {
         &mut self,
         terminal: &mut DefaultTerminal,
         mut trainer: TrainerHandle,
-        tx: mpsc::UnboundedSender<Command>,
+        cmd_tx: mpsc::UnboundedSender<Command>,
+        data_rx: broadcast::Receiver<BikeData>,
     ) -> io::Result<()> {
-        self.to_trainer = Some(tx);
+        self.to_trainer = Some(cmd_tx);
+        self.from_trainer = Some(data_rx);
         self.to_trainer.as_ref().expect("").send(Command::Reset);
         while !self.exit {
             terminal.draw(|frame| self.draw(frame))?;
@@ -56,14 +110,25 @@ impl App {
     }
 
     fn handle_events(&mut self) -> io::Result<()> {
-        match event::read()? {
-            // it's important to check that the event is a key press event as
-            // crossterm also emits key release and repeat events on Windows.
-            Event::Key(key_event) if key_event.kind == KeyEventKind::Press => {
-                self.handle_key_event(key_event)
-            }
-            _ => {}
-        };
+        if let Ok(e) = event::poll(Duration::from_millis(100))
+            && e
+        {
+            match event::read()? {
+                // it's important to check that the event is a key press event as
+                // crossterm also emits key release and repeat events on Windows.
+                Event::Key(key_event) if key_event.kind == KeyEventKind::Press => {
+                    self.handle_key_event(key_event)
+                }
+                _ => {}
+            };
+        }
+
+        if let Ok(data) = self.from_trainer.as_mut().expect("").try_recv() {
+            eprintln!("{:?}", data);
+            self.stats.power.push_back(data.power.unwrap());
+            self.stats.cadence.push_back(data.cadence.unwrap());
+            self.stats.heart_rate.push_back(data.heart_rate.unwrap());
+        }
         Ok(())
     }
 
@@ -136,10 +201,32 @@ impl Widget for &App {
             .title(title.centered())
             .title_bottom(instructions.centered())
             .border_set(border::THICK);
-        let counter = Text::from(vec![Line::from(match self.mode {
-            Mode::Power => vec!["Power: ".into(), self.power.to_string().yellow()],
-            Mode::Resistance => vec!["Resistance: ".into(), self.resistance.to_string().yellow()],
-        })]);
+
+        let power_3s = self.stats.rolling_power(3);
+        let cadence_3s = self.stats.rolling_cadence(3);
+        let heart_3s = self.stats.rolling_heart_rate(3);
+
+        let counter = Text::from(vec![
+            Line::from(match self.mode {
+                Mode::Power => vec!["Power: ".into(), self.power.to_string().yellow()],
+                Mode::Resistance => {
+                    vec!["Resistance: ".into(), self.resistance.to_string().yellow()]
+                }
+            }),
+            Line::from(vec![]),
+            Line::from(vec![
+                "3s Power: ".into(),
+                format!("{:?}", power_3s).yellow(),
+            ]),
+            Line::from(vec![
+                "3s Cadence: ".into(),
+                format!("{:?}", cadence_3s).yellow(),
+            ]),
+            Line::from(vec![
+                "3s Heart Rate: ".into(),
+                format!("{:?}", heart_3s).yellow(),
+            ]),
+        ]);
 
         Paragraph::new(counter)
             .centered()
@@ -159,15 +246,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let trainer = trainer.unwrap();
     trainer.connect().await;
 
-    // let backend = CrosstermBackend::new(io::stdout());
-    // let mut terminal = Terminal::new(backend)?;
-    //
-    // let mut app = App::default();
-    // app.init_terminal()?;
-    let (tx, mut rx) = mpsc::unbounded_channel::<Command>();
-    let inner = trainer.trainer.clone();
+    let (cmd_tx, mut cmd_rx) = mpsc::unbounded_channel::<Command>();
+    let (data_tx, data_rx) = broadcast::channel::<BikeData>(100);
+    let trainer_copy = trainer.trainer.clone();
     tokio::spawn(async move {
-        TrainerHandle::run(inner, rx).await;
+        TrainerHandle::run(trainer_copy, cmd_rx, data_tx).await;
     });
 
     // let mut event_stream = event::EventStream::new();
@@ -190,15 +273,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let mut term = ratatui::init();
     let mut app = App::default();
-    // ratatui::run(|terminal| app.run(terminal));
-    // Ok(())
     let res = app
-        .run(&mut term, trainer, tx.clone())
+        .run(&mut term, trainer, cmd_tx.clone(), data_rx)
         .await
-    //     // .inspect_err(|e| tracing::error!("Error in main event loop: {}", e))
+    // .inspect_err(|e| tracing::error!("Error in main event loop: {}", e))
     ;
     ratatui::restore();
-    // drop(app);
     Ok(res?)
 }
 

@@ -1,4 +1,4 @@
-use btleplug::api::{Central, Manager as _, Peripheral as _, ScanFilter};
+use btleplug::api::{Central, Manager as _, Peripheral as _, ScanFilter, ValueNotification};
 use btleplug::api::{Characteristic, WriteType};
 use btleplug::platform::{Manager, Peripheral};
 use std::sync::Arc;
@@ -196,7 +196,8 @@ impl TrainerHandle {
 
     pub async fn run(
         handle: Arc<Mutex<Trainer>>,
-        mut rx: tokio::sync::mpsc::UnboundedReceiver<Command>,
+        mut cmd_rx: tokio::sync::mpsc::UnboundedReceiver<Command>,
+        mut data_tx: tokio::sync::broadcast::Sender<BikeData>,
     ) {
         let trainer = handle.lock().await;
 
@@ -212,10 +213,16 @@ impl TrainerHandle {
 
         loop {
             if let Ok(Some(v)) = notify.try_next().await {
-                eprintln!("GOT = {:?}", v);
+                // eprintln!("GOT = {:?}", v);
+                match v.uuid {
+                    BIKE_DATA => {
+                        data_tx.send(BikeData::parse(v));
+                    }
+                    _ => (),
+                };
             }
 
-            if let Ok(c) = rx.try_recv() {
+            if let Ok(c) = cmd_rx.try_recv() {
                 match c {
                     Command::Reset => trainer.reset().await,
                     Command::Resist(level) => trainer.set_resistance(level).await,

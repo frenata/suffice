@@ -11,3 +11,5 @@ rand = "0.10.0"
 tokio-stream = "0.1.18"
 ratatui = "0.30.0"
 crossterm = { version = "0.29.0", features = ["event-stream"] }
+fixed_deque = "1.6.0"
+average = "0.16.0"
