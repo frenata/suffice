@@ -1,4 +1,4 @@
-use btleplug::api::{Central, Manager as _, Peripheral as _, ScanFilter, ValueNotification};
+use btleplug::api::{Central, Manager as _, Peripheral as _, ScanFilter};
 use btleplug::api::{Characteristic, WriteType};
 use btleplug::platform::{Manager, Peripheral};
 use std::sync::Arc;
@@ -17,8 +17,11 @@ pub enum Command {
 
 #[derive(Debug)]
 struct Range {
+    #[allow(unused)]
     min: u16,
+    #[allow(unused)]
     max: u16,
+    #[allow(unused)]
     inc: u16,
 }
 
@@ -114,16 +117,11 @@ pub struct TrainerHandle {
 impl TrainerHandle {
     pub async fn find(target: String) -> Option<TrainerHandle> {
         let manager = Manager::new().await.unwrap();
-
-        // get the first bluetooth adapter
         let adapters = manager.adapters().await.ok()?;
         let central = adapters.into_iter().nth(0).unwrap();
-
-        // start scanning for devices
         central.start_scan(ScanFilter::default()).await.ok()?;
-        // instead of waiting, you can use central.events() to get a stream which will
-        // notify you of new devices, for an example of that see examples/event_driven_discovery.rs
         time::sleep(Duration::from_secs(2)).await;
+
         for p in central.peripherals().await.ok()? {
             if let Some(props) = p.properties().await.ok()? {
                 // eprintln!("{:?}", props.local_name);
@@ -197,7 +195,7 @@ impl TrainerHandle {
     pub async fn run(
         handle: Arc<Mutex<Trainer>>,
         mut cmd_rx: tokio::sync::mpsc::UnboundedReceiver<Command>,
-        mut data_tx: tokio::sync::broadcast::Sender<BikeData>,
+        data_tx: tokio::sync::broadcast::Sender<BikeData>,
     ) {
         let trainer = handle.lock().await;
 
@@ -216,7 +214,7 @@ impl TrainerHandle {
                 // eprintln!("GOT = {:?}", v);
                 match v.uuid {
                     BIKE_DATA => {
-                        data_tx.send(BikeData::parse(v));
+                        let _ = data_tx.send(BikeData::parse(v));
                     }
                     _ => (),
                 };

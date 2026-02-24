@@ -3,11 +3,9 @@ use std::error::Error;
 use std::io;
 use std::time::Duration;
 
-use average::{Estimate, Mean};
+use average::Mean;
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind};
 use fixed_deque::Deque;
-use ratatui::Terminal;
-use ratatui::prelude::CrosstermBackend;
 use ratatui::{
     DefaultTerminal, Frame,
     buffer::Buffer,
@@ -18,9 +16,8 @@ use ratatui::{
     widgets::{Block, Paragraph, Widget},
 };
 use suffice::ftms::BikeData;
-use tokio_stream::StreamExt;
 
-use suffice::trainer::{self, Command, TrainerHandle};
+use suffice::trainer::{Command, TrainerHandle};
 use tokio::sync::{broadcast, mpsc};
 
 #[derive(Debug, Default)]
@@ -91,13 +88,12 @@ impl App {
     pub async fn run(
         &mut self,
         terminal: &mut DefaultTerminal,
-        mut trainer: TrainerHandle,
         cmd_tx: mpsc::UnboundedSender<Command>,
         data_rx: broadcast::Receiver<BikeData>,
     ) -> io::Result<()> {
         self.to_trainer = Some(cmd_tx);
         self.from_trainer = Some(data_rx);
-        self.to_trainer.as_ref().expect("").send(Command::Reset);
+        let _ = self.to_trainer.as_ref().expect("").send(Command::Reset);
         while !self.exit {
             terminal.draw(|frame| self.draw(frame))?;
             self.handle_events()?;
@@ -144,15 +140,17 @@ impl App {
 
         match self.mode {
             Mode::Power => {
-                self.to_trainer.as_ref().expect("").send(Command::Reset);
-                self.to_trainer
+                let _ = self.to_trainer.as_ref().expect("").send(Command::Reset);
+                let _ = self
+                    .to_trainer
                     .as_ref()
                     .expect("")
                     .send(Command::Power(self.power));
             }
             Mode::Resistance => {
-                self.to_trainer.as_ref().expect("").send(Command::Reset);
-                self.to_trainer
+                let _ = self.to_trainer.as_ref().expect("").send(Command::Reset);
+                let _ = self
+                    .to_trainer
                     .as_ref()
                     .expect("")
                     .send(Command::Resist((self.resistance as u8).into()));
@@ -246,35 +244,17 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let trainer = trainer.unwrap();
     trainer.connect().await;
 
-    let (cmd_tx, mut cmd_rx) = mpsc::unbounded_channel::<Command>();
+    let (cmd_tx, cmd_rx) = mpsc::unbounded_channel::<Command>();
     let (data_tx, data_rx) = broadcast::channel::<BikeData>(100);
     let trainer_copy = trainer.trainer.clone();
     tokio::spawn(async move {
         TrainerHandle::run(trainer_copy, cmd_rx, data_tx).await;
     });
 
-    // let mut event_stream = event::EventStream::new();
-    // tokio::spawn(async move {
-    //     loop {
-    //         tokio::select! {
-    //             maybe_ev = event_stream.next() => {
-    //                 let ev = match maybe_ev {
-    //                     None => break,
-    //                     Some(Err(_)) => break,
-    //                     Some(Ok(e)) => e,
-    //                 };
-    //                 // if tx.send(AppEvent::Input(ev)).await.is_err() {
-    //                 //     break;
-    //                 // }
-    //             }
-    //         }
-    //     }
-    // });
-
     let mut term = ratatui::init();
     let mut app = App::default();
     let res = app
-        .run(&mut term, trainer, cmd_tx.clone(), data_rx)
+        .run(&mut term, cmd_tx.clone(), data_rx)
         .await
     // .inspect_err(|e| tracing::error!("Error in main event loop: {}", e))
     ;
