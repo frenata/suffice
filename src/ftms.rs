@@ -1,15 +1,9 @@
 use btleplug::api::ValueNotification;
-use uuid::*;
 
-pub const RESISTANCE_RANGE: Uuid = uuid!("00002ad6-0000-1000-8000-00805f9b34fb");
-pub const POWER_RANGE: Uuid = uuid!("00002ad8-0000-1000-8000-00805f9b34fb");
-// pub const FEATURES: Uuid = uuid!("00002acc-0000-1000-8000-00805f9b34fb");
+use std::io::Error;
+use std::pin::Pin;
 
-pub const MACHINE_STATUS: Uuid = uuid!("00002ada-0000-1000-8000-00805f9b34fb");
-pub const TRAINING_STATUS: Uuid = uuid!("00002ad3-0000-1000-8000-00805f9b34fb");
-
-pub const MACHINE_CONTROL: Uuid = uuid!("00002ad9-0000-1000-8000-00805f9b34fb");
-pub const BIKE_DATA: Uuid = uuid!("00002ad2-0000-1000-8000-00805f9b34fb");
+use tokio_stream::Stream;
 
 #[derive(Default, Debug, Clone, Copy, PartialEq)]
 pub struct BikeData {
@@ -60,6 +54,7 @@ impl BikeData {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use uuid::Uuid;
 
     #[test]
     fn all_zero_values() {
@@ -113,5 +108,45 @@ mod tests {
         };
 
         assert_eq!(actual, expected);
+    }
+}
+
+pub trait FitnessDevice {
+    fn setup(
+        &mut self,
+    ) -> impl std::future::Future<Output = Result<(Option<Range>, Option<Range>), Error>> + Send;
+    fn notifications(
+        &self,
+    ) -> impl std::future::Future<
+        Output = Result<Pin<Box<dyn Stream<Item = BikeData> + Send>>, Error>,
+    > + Send;
+    fn reset(&self) -> impl std::future::Future<Output = Result<(), Error>> + Send;
+    fn set_power(&self, level: i16) -> impl std::future::Future<Output = Result<(), Error>> + Send;
+    fn set_resistance(
+        &self,
+        level: u16,
+    ) -> impl std::future::Future<Output = Result<(), Error>> + Send;
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct Range {
+    #[allow(unused)]
+    min: u16,
+    #[allow(unused)]
+    max: u16,
+    #[allow(unused)]
+    inc: u16,
+}
+
+impl Range {
+    pub fn from_bytes(bytes: Vec<u8>) -> Range {
+        Range {
+            min: u16::from_le_bytes(bytes[0..2].try_into().unwrap()),
+            max: u16::from_le_bytes(bytes[2..4].try_into().unwrap()),
+            inc: u16::from_le_bytes(bytes[4..6].try_into().unwrap()),
+        }
+    }
+    pub fn is_in(&self, n: u16) -> bool {
+        n > self.min && n < self.max
     }
 }
