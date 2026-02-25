@@ -44,7 +44,7 @@ pub struct Trainer {
 }
 
 impl Trainer {
-    pub async fn reset(self: &Self) {
+    pub async fn reset(&self) {
         // 1. Request Control
         // 2. Reset params (which gives up control!)
         // 3. Request Control again!
@@ -53,7 +53,7 @@ impl Trainer {
             .peri
             .write(
                 self.control.as_ref().unwrap(),
-                &vec![0],
+                &[0],
                 WriteType::WithResponse,
             )
             .await;
@@ -63,7 +63,7 @@ impl Trainer {
             .peri
             .write(
                 self.control.as_ref().unwrap(),
-                &vec![1],
+                &[1],
                 WriteType::WithResponse,
             )
             .await;
@@ -73,14 +73,14 @@ impl Trainer {
             .peri
             .write(
                 self.control.as_ref().unwrap(),
-                &vec![0],
+                &[0],
                 WriteType::WithResponse,
             )
             .await;
         eprintln!("{:?}", res);
     }
 
-    pub async fn set_resistance(self: &Self, level: u16) {
+    pub async fn set_resistance(&self, level: u16) {
         let mut data = u16::to_le_bytes(level).to_vec();
         data.insert(0, 4);
         let res = self
@@ -94,7 +94,7 @@ impl Trainer {
         eprintln!("{:?}", res);
     }
 
-    pub async fn set_power(self: &Self, level: i16) {
+    pub async fn set_power(&self, level: i16) {
         let mut data = i16::to_le_bytes(level).to_vec();
         data.insert(0, 5);
         let res = self
@@ -142,21 +142,21 @@ impl TrainerHandle {
         None
     }
 
-    pub async fn connect(self: &Self) {
+    pub async fn connect(&self) {
         let mut trainer = self.trainer.lock().await;
         let _ = trainer.peri.connect().await;
         let _ = trainer.peri.discover_services().await;
         for c in trainer.peri.characteristics() {
-            if c.uuid == RESISTANCE_RANGE {
-                if let Ok(res) = trainer.peri.read(&c).await {
-                    trainer.resistance_range = Some(Range::from_bytes(res));
-                }
+            if c.uuid == RESISTANCE_RANGE
+                && let Ok(res) = trainer.peri.read(&c).await
+            {
+                trainer.resistance_range = Some(Range::from_bytes(res));
             }
 
-            if c.uuid == POWER_RANGE {
-                if let Ok(res) = trainer.peri.read(&c).await {
-                    trainer.power_range = Some(Range::from_bytes(res));
-                }
+            if c.uuid == POWER_RANGE
+                && let Ok(res) = trainer.peri.read(&c).await
+            {
+                trainer.power_range = Some(Range::from_bytes(res));
             }
 
             // TODO: See bitmasks here https://github.com/zacharyedwardbull/pycycling/blob/master/pycycling/ftms_parsers/fitness_machine_feature.py#L132
@@ -212,6 +212,7 @@ impl TrainerHandle {
         loop {
             if let Ok(Some(v)) = notify.try_next().await {
                 // eprintln!("GOT = {:?}", v);
+                #[allow(clippy::single_match)]
                 match v.uuid {
                     BIKE_DATA => {
                         let _ = data_tx.send(BikeData::parse(v));
