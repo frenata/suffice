@@ -28,7 +28,7 @@
 
 * [x] tests and measuring test coverage
 * [x] CI checks
-* [ ] crates.io publication
+* [x] crates.io publication
 * [ ] tokio tracing logs
 * [ ] better error handling generally instead of reckless unwraps everywhere
 
