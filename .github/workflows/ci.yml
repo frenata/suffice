@@ -36,6 +36,29 @@ jobs:
       - name: clippy
         run: cargo clippy --all-targets --no-deps -- -D warnings
 
+
+  analysis:
+    runs-on: ubuntu-latest
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - name: Install c libs
+        run: sudo apt install -y libdbus-1-dev pkg-config
+      - uses: actions/checkout@v6
+      - name: Install Rust
+        run: rustup default nightly
+      - name: install machete
+        run: cargo install cargo-machete
+      - name: run machete
+        run: cargo machete
+      - name: install careful
+        run: cargo install cargo-careful
+      - name: setup careful
+        run: cargo careful setup
+      - name: run careful
+        run: cargo careful test
+
+
   coverage:
     runs-on: ubuntu-latest
     env:
