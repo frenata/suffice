@@ -1,4 +1,4 @@
-use btleplug::api::{Central, Manager as _, Peripheral as _, ScanFilter};
+use btleplug::api::{Central, Manager as _, Peripheral as PeriTrait, ScanFilter};
 use btleplug::api::{Characteristic, WriteType};
 use btleplug::platform::{Manager, Peripheral};
 use std::sync::Arc;
@@ -36,14 +36,14 @@ impl Range {
 }
 
 #[derive(Debug)]
-pub struct Trainer {
-    peri: Peripheral,
+pub struct Trainer<T: PeriTrait> {
+    peri: T,
     resistance_range: Option<Range>,
     power_range: Option<Range>,
     control: Option<Characteristic>,
 }
 
-impl Trainer {
+impl<T: PeriTrait> Trainer<T> {
     pub async fn reset(&self) {
         // 1. Request Control
         // 2. Reset params (which gives up control!)
@@ -110,38 +110,11 @@ impl Trainer {
 }
 
 #[derive(Debug, Clone)]
-pub struct TrainerHandle {
-    pub trainer: Arc<Mutex<Trainer>>,
+pub struct TrainerHandle<T: PeriTrait> {
+    pub trainer: Arc<Mutex<Trainer<T>>>,
 }
 
-impl TrainerHandle {
-    pub async fn find(target: String) -> Option<TrainerHandle> {
-        let manager = Manager::new().await.unwrap();
-        let adapters = manager.adapters().await.ok()?;
-        let central = adapters.into_iter().nth(0).unwrap();
-        central.start_scan(ScanFilter::default()).await.ok()?;
-        time::sleep(Duration::from_secs(2)).await;
-
-        for p in central.peripherals().await.ok()? {
-            if let Some(props) = p.properties().await.ok()? {
-                // eprintln!("{:?}", props.local_name);
-                if let Some(name) = props.local_name
-                    && name == target
-                {
-                    let trainer = Arc::new(Mutex::new(Trainer {
-                        peri: p,
-                        resistance_range: None,
-                        power_range: None,
-                        control: None,
-                    }));
-                    return Some(TrainerHandle { trainer });
-                }
-            }
-        }
-
-        None
-    }
-
+impl<T: PeriTrait> TrainerHandle<T> {
     pub async fn connect(&self) {
         let mut trainer = self.trainer.lock().await;
         let _ = trainer.peri.connect().await;
@@ -193,7 +166,7 @@ impl TrainerHandle {
     }
 
     pub async fn run(
-        handle: Arc<Mutex<Trainer>>,
+        handle: Arc<Mutex<Trainer<T>>>,
         mut cmd_rx: tokio::sync::mpsc::UnboundedReceiver<Command>,
         data_tx: tokio::sync::broadcast::Sender<BikeData>,
     ) {
@@ -230,4 +203,31 @@ impl TrainerHandle {
             }
         }
     }
+}
+
+pub async fn find(target: String) -> Option<TrainerHandle<Peripheral>> {
+    let manager = Manager::new().await.unwrap();
+    let adapters = manager.adapters().await.ok()?;
+    let central = adapters.into_iter().nth(0).unwrap();
+    central.start_scan(ScanFilter::default()).await.ok()?;
+    time::sleep(Duration::from_secs(2)).await;
+
+    for p in central.peripherals().await.ok()? {
+        if let Some(props) = p.properties().await.ok()? {
+            // eprintln!("{:?}", props.local_name);
+            if let Some(name) = props.local_name
+                && name == target
+            {
+                let trainer = Arc::new(Mutex::new(Trainer::<Peripheral> {
+                    peri: p,
+                    resistance_range: None,
+                    power_range: None,
+                    control: None,
+                }));
+                return Some(TrainerHandle { trainer });
+            }
+        }
+    }
+
+    None
 }

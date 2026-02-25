@@ -17,7 +17,7 @@ use ratatui::{
 };
 use suffice::ftms::BikeData;
 
-use suffice::trainer::{Command, TrainerHandle};
+use suffice::trainer::{Command, TrainerHandle, find};
 use tokio::sync::{broadcast, mpsc};
 
 #[derive(Debug, Default)]
@@ -237,7 +237,7 @@ impl Widget for &App {
 async fn main() -> Result<(), Box<dyn Error>> {
     let args: Vec<String> = env::args().collect();
     let target = args[1].clone();
-    let trainer = TrainerHandle::find(target.clone()).await;
+    let trainer = find(target.clone()).await;
     if trainer.is_none() {
         return Err(format!("{} not found", target).into());
     }
