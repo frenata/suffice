@@ -11,7 +11,7 @@ pub const TRAINING_STATUS: Uuid = uuid!("00002ad3-0000-1000-8000-00805f9b34fb");
 pub const MACHINE_CONTROL: Uuid = uuid!("00002ad9-0000-1000-8000-00805f9b34fb");
 pub const BIKE_DATA: Uuid = uuid!("00002ad2-0000-1000-8000-00805f9b34fb");
 
-#[derive(Default, Debug, Clone, Copy)]
+#[derive(Default, Debug, Clone, Copy, PartialEq)]
 pub struct BikeData {
     pub power: Option<i16>,
     pub cadence: Option<u8>,
@@ -54,5 +54,64 @@ impl BikeData {
             data.heart_rate = Some(u8::from_le_bytes(v.value[10..11].try_into().unwrap()));
         }
         data
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn all_zero_values() {
+        let v: ValueNotification = ValueNotification {
+            uuid: Uuid::new_v4(),
+            value: vec![100, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        };
+        let actual = BikeData::parse(v);
+        let expected = BikeData {
+            power: Some(0),
+            cadence: Some(0),
+            resistance: Some(0),
+            heart_rate: Some(0),
+            speed: Some(0),
+        };
+
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn no_flag_bits() {
+        let v: ValueNotification = ValueNotification {
+            uuid: Uuid::new_v4(),
+            value: vec![1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        };
+        let actual = BikeData::parse(v);
+        let expected = BikeData {
+            power: None,
+            cadence: None,
+            resistance: None,
+            heart_rate: None,
+            speed: None,
+        };
+
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn arbitrary_data() {
+        let v: ValueNotification = ValueNotification {
+            uuid: Uuid::new_v4(),
+            value: vec![100, 2, 34, 2, 17, 0, 77, 0, 9, 9, 55],
+        };
+        let actual = BikeData::parse(v);
+        let expected = BikeData {
+            power: Some(2313),
+            cadence: Some(8),
+            resistance: Some(77),
+            heart_rate: Some(55),
+            speed: Some(546),
+        };
+
+        assert_eq!(actual, expected);
     }
 }
