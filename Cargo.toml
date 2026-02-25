@@ -1,5 +1,11 @@
 [package]
+repository = "https://github.com/frenata/suffice"
+readme = "README.md"
 name = "suffice"
+description = "Suffice is a terminal-based tool for controlling a cycling trainer, so you can pound pedals while peddling code."
+license = "AGPL"
+keywords = ["bluetooth", "tui", "cycling"]
+categories = ["command-line-utilities"]
 version = "0.1.0"
 edition = "2024"
 

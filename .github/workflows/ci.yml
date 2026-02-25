@@ -6,7 +6,6 @@ on:
     branches:
       - trunk
 
-
 jobs:
   test:
     runs-on: ubuntu-latest
