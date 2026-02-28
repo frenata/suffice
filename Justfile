@@ -17,7 +17,7 @@ enter: up
   {{runner}} bash
 
 lint: up
-  {{runner}} cargo clippy --no-deps
+  {{runner}} cargo clippy --all-targets --no-deps -- -D warnings
 
 test: up
   {{runner}} cargo test

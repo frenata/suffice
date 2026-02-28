@@ -278,9 +278,9 @@ mod tests {
         let mut app = App::default();
         let mut buf = Buffer::empty(Rect::new(0, 0, 50, 10));
 
-        let (data_tx, data_rx) = broadcast::channel::<BikeData>(100);
+        let (_data_tx, data_rx) = broadcast::channel::<BikeData>(100);
         app.from_trainer = Some(data_rx);
-        app.handle_events();
+        let _ = app.handle_events();
         app.render(buf.area, &mut buf);
 
         let mut expected = Buffer::with_lines(vec![
@@ -318,7 +318,7 @@ mod tests {
         let (data_tx, data_rx) = broadcast::channel::<BikeData>(100);
         app.from_trainer = Some(data_rx);
 
-        data_tx.send(BikeData {
+        let _ = data_tx.send(BikeData {
             power: Some(100),
             cadence: Some(50),
             heart_rate: Some(93),
@@ -326,7 +326,7 @@ mod tests {
             speed: Some(10),
         });
 
-        data_tx.send(BikeData {
+        let _ = data_tx.send(BikeData {
             power: Some(120),
             cadence: Some(52),
             heart_rate: Some(90),
@@ -334,7 +334,7 @@ mod tests {
             speed: Some(10),
         });
 
-        data_tx.send(BikeData {
+        let _ = data_tx.send(BikeData {
             power: Some(125),
             cadence: Some(51),
             heart_rate: Some(91),
@@ -342,9 +342,9 @@ mod tests {
             speed: Some(10),
         });
 
-        app.handle_events();
-        app.handle_events();
-        app.handle_events();
+        let _ = app.handle_events();
+        let _ = app.handle_events();
+        let _ = app.handle_events();
         app.render(buf.area, &mut buf);
 
         let mut expected = Buffer::with_lines(vec![
