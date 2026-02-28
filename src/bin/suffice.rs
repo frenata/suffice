@@ -17,7 +17,8 @@ use ratatui::{
 };
 use suffice::ftms::BikeData;
 
-use suffice::trainer::{Command, TrainerHandle};
+use suffice::bluetooth::BluetoothDevice;
+use suffice::trainer::{Command, Trainer};
 use tokio::sync::{broadcast, mpsc};
 
 #[derive(Debug, Default)]
@@ -237,18 +238,18 @@ impl Widget for &App {
 async fn main() -> Result<(), Box<dyn Error>> {
     let args: Vec<String> = env::args().collect();
     let target = args[1].clone();
-    let trainer = TrainerHandle::find(target.clone()).await;
-    if trainer.is_none() {
+    let device = BluetoothDevice::new(target.clone()).await;
+    if device.is_none() {
         return Err(format!("{} not found", target).into());
     }
-    let trainer = trainer.unwrap();
-    trainer.connect().await;
+    let device = device.unwrap();
+    let trainer = Trainer::<BluetoothDevice>::new(device).await;
 
     let (cmd_tx, cmd_rx) = mpsc::unbounded_channel::<Command>();
     let (data_tx, data_rx) = broadcast::channel::<BikeData>(100);
-    let trainer_copy = trainer.trainer.clone();
+
     tokio::spawn(async move {
-        TrainerHandle::run(trainer_copy, cmd_rx, data_tx).await;
+        let _ = trainer.run(cmd_rx, data_tx).await;
     });
 
     let mut term = ratatui::init();
