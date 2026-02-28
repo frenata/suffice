@@ -125,7 +125,7 @@ impl FitnessDevice for BluetoothDevice {
         if let Ok(get_notif) = self.peripheral.notifications().await {
             let data = get_notif
                 .map(|notify| {
-                    event!(Level::INFO, "BLE notification: {:?}", notify);
+                    event!(Level::DEBUG, "BLE notification: {:?}", notify);
                     notify
                 })
                 .filter(|notify: &ValueNotification| matches!(notify.uuid, BIKE_DATA))
@@ -153,7 +153,7 @@ impl FitnessDevice for BluetoothDevice {
         {
             event!(
                 Level::ERROR,
-                "failed to request control {}",
+                "failed to request control before reset {}",
                 err.to_string()
             );
             return Err(Error::other(err.to_string()));
@@ -183,7 +183,7 @@ impl FitnessDevice for BluetoothDevice {
         {
             event!(
                 Level::ERROR,
-                "failed to request control {}",
+                "failed to request control after reset {}",
                 err.to_string()
             );
             return Err(Error::other(err.to_string()));
