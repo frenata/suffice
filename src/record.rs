@@ -22,9 +22,10 @@ pub fn save_file(data: Vec<BikeData>) -> Result<(), Error> {
     let fout = File::create(fout_name)?;
     let mut bw = BufWriter::new(fout);
     let mut enc = Encoder::new(&mut bw);
+    let now = Local::now();
 
     let mut messages: Vec<Message> = data.iter().map(to_message).collect();
-    messages.insert(0, get_header());
+    messages.insert(0, get_header(start));
 
     let mut fit = FIT {
         messages,
@@ -58,16 +59,29 @@ fn to_message(data: &BikeData) -> Message {
         rec.resistance = resistance;
     }
 
-    rec.timestamp = DateTime(data.time.timestamp() as u32);
+    rec.timestamp = to_garmin_datetime(data.time);
 
     Message::from(rec)
 }
 
-fn get_header() -> Message {
     let mut file_id = mesgdef::FileId::new();
     file_id.manufacturer = typedef::Manufacturer::DEVELOPMENT;
     file_id.product_name = "Suffice".to_string();
     file_id.r#type = typedef::File::ACTIVITY;
-    file_id.time_created = DateTime(Local::now().timestamp() as u32);
+    file_id.time_created = to_garmin_datetime(time);
     Message::from(file_id)
 }
+
+fn to_garmin_datetime(dt: chrono::DateTime<Local>) -> rustyfit::profile::typedef::DateTime {
+    // let anchor = chrono::DateTime<Local>::timez
+    let garmin_anchor = Local::now()
+        .timezone()
+        .with_ymd_and_hms(1989, 12, 31, 0, 0, 0)
+        .unwrap()
+        .timestamp();
+
+    let local = dt.timestamp();
+
+    rustyfit::profile::typedef::DateTime((local - garmin_anchor) as u32)
+}
+
