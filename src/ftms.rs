@@ -1,18 +1,33 @@
 use std::io::Error;
 use std::pin::Pin;
 
+use chrono::{DateTime, Local};
 use tokio_stream::Stream;
 
 #[cfg(test)]
 use mockall::{automock, predicate::*};
 
-#[derive(Default, Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct BikeData {
     pub power: Option<u16>,
     pub cadence: Option<u8>,
     pub resistance: Option<u8>,
     pub heart_rate: Option<u8>,
     pub speed: Option<u16>,
+    pub time: DateTime<Local>,
+}
+
+impl Default for BikeData {
+    fn default() -> Self {
+        BikeData {
+            power: None,
+            cadence: None,
+            resistance: None,
+            heart_rate: None,
+            speed: None,
+            time: Local::now(),
+        }
+    }
 }
 
 pub trait FitnessData {
