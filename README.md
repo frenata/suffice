@@ -56,7 +56,7 @@
 
 * [ ] sometimes the FIT file has more than one session -- why?
 * [ ] sometimes the trainer stops sending data back
-* [ ] rapid commands only slowly take effect (because we only loop events every 1s)
+* [x] rapid commands only slowly take effect (because we only loop events every 1s)
 
 ## Resources Used
 

@@ -5,6 +5,7 @@ use std::time::Duration;
 
 use average::Mean;
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind};
+use derivative::Derivative;
 use fixed_deque::Deque;
 use ratatui::{
     DefaultTerminal, Frame,
@@ -16,6 +17,7 @@ use ratatui::{
     widgets::{Block, Paragraph, Widget},
 };
 use tokio::sync::{broadcast, mpsc};
+use tracing::{Level, event as ev, instrument};
 
 use suffice::bluetooth::BluetoothDevice;
 use suffice::ftms::BikeData;
@@ -74,12 +76,17 @@ impl Default for Stats {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Derivative)]
+#[derivative(Default)]
 pub struct App {
     resistance: i16,
     power: i16,
     exit: bool,
     mode: Mode,
+    #[derivative(Default(value = "true"))]
+    mode_dirty: bool,
+    #[derivative(Default(value = "true"))]
+    level_dirty: bool,
     to_trainer: Option<mpsc::UnboundedSender<Command>>,
     from_trainer: Option<broadcast::Receiver<BikeData>>,
     stats: Stats,
@@ -106,20 +113,8 @@ impl App {
         frame.render_widget(self, frame.area());
     }
 
+    #[instrument(skip(self))]
     fn handle_events(&mut self) -> io::Result<()> {
-        if let Ok(e) = event::poll(Duration::from_millis(100))
-            && e
-        {
-            match event::read()? {
-                // it's important to check that the event is a key press event as
-                // crossterm also emits key release and repeat events on Windows.
-                Event::Key(key_event) if key_event.kind == KeyEventKind::Press => {
-                    self.handle_key_event(key_event)
-                }
-                _ => {}
-            };
-        }
-
         if let Ok(data) = self.from_trainer.as_mut().expect("").try_recv() {
             if let Some(stat) = data.power {
                 self.stats.power.push_back(stat);
@@ -131,6 +126,61 @@ impl App {
                 self.stats.heart_rate.push_back(stat);
             }
         }
+
+        if let Ok(e) = event::poll(Duration::from_millis(500))
+            && e
+        {
+            match event::read()? {
+                Event::Key(key_event) if key_event.kind == KeyEventKind::Press => {
+                    self.handle_key_event(key_event)
+                }
+                _ => {}
+            };
+        } else {
+            // ev!(Level::INFO, "no event happened");
+
+            if self.mode_dirty {
+                let _ = self
+                    .to_trainer
+                    .as_ref()
+                    .expect("send should always work")
+                    .send(Command::Reset);
+                ev!(Level::INFO, "sent reset command");
+                self.mode_dirty = false;
+            }
+
+            if self.level_dirty {
+                match self.mode {
+                    Mode::Power => {
+                        let _ = self
+                            .to_trainer
+                            .as_ref()
+                            .expect("send should always work")
+                            .send(Command::Reset);
+                        let _ = self
+                            .to_trainer
+                            .as_ref()
+                            .expect("")
+                            .send(Command::Power(self.power));
+                    }
+                    Mode::Resistance => {
+                        let _ = self.to_trainer.as_ref().expect("").send(Command::Reset);
+                        let _ = self
+                            .to_trainer
+                            .as_ref()
+                            .expect("")
+                            .send(Command::Resist((self.resistance as u8).into()));
+                    }
+                }
+                ev!(
+                    Level::INFO,
+                    "sent level change command for {:?} mode",
+                    self.mode
+                );
+                self.level_dirty = false;
+            }
+        }
+
         Ok(())
     }
 
@@ -150,25 +200,6 @@ impl App {
             }
             _ => {}
         }
-
-        match self.mode {
-            Mode::Power => {
-                let _ = self.to_trainer.as_ref().expect("").send(Command::Reset);
-                let _ = self
-                    .to_trainer
-                    .as_ref()
-                    .expect("")
-                    .send(Command::Power(self.power));
-            }
-            Mode::Resistance => {
-                let _ = self.to_trainer.as_ref().expect("").send(Command::Reset);
-                let _ = self
-                    .to_trainer
-                    .as_ref()
-                    .expect("")
-                    .send(Command::Resist((self.resistance as u8).into()));
-            }
-        }
     }
 
     fn exit(&mut self) {
@@ -180,6 +211,7 @@ impl App {
             Mode::Power => self.power = (self.power + 10).clamp(0, 1000),
             Mode::Resistance => self.resistance = (self.resistance + 1).clamp(0, 100),
         }
+        self.level_dirty = true;
     }
 
     fn less(&mut self) {
@@ -187,6 +219,7 @@ impl App {
             Mode::Power => self.power = (self.power - 10).clamp(0, 1000),
             Mode::Resistance => self.resistance = (self.resistance - 1).clamp(0, 100),
         }
+        self.level_dirty = true;
     }
 
     fn change_mode(&mut self, _change: i8) {
@@ -194,6 +227,7 @@ impl App {
             Mode::Power => self.mode = Mode::Resistance,
             Mode::Resistance => self.mode = Mode::Power,
         }
+        self.mode_dirty = true;
     }
 }
 
@@ -290,7 +324,11 @@ mod tests {
 
     #[test]
     fn render_no_data() {
-        let mut app = App::default();
+        let mut app = App {
+            level_dirty: false,
+            mode_dirty: false,
+            ..Default::default()
+        };
         let mut buf = Buffer::empty(Rect::new(0, 0, 50, 10));
 
         let (_data_tx, data_rx) = broadcast::channel::<BikeData>(100);
@@ -330,7 +368,11 @@ mod tests {
 
     #[test]
     fn render_with_data() {
-        let mut app = App::default();
+        let mut app = App {
+            level_dirty: false,
+            mode_dirty: false,
+            ..Default::default()
+        };
         let mut buf = Buffer::empty(Rect::new(0, 0, 50, 10));
 
         let (data_tx, data_rx) = broadcast::channel::<BikeData>(100);
