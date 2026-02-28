@@ -51,11 +51,11 @@ impl<T: FitnessDevice + std::fmt::Debug> Trainer<T> {
             .notifications()
             .await
             .unwrap()
-            .timeout_repeating(tokio::time::interval(Duration::from_secs(1)));
+            .timeout_repeating(tokio::time::interval(Duration::from_millis(200)));
 
         loop {
             if let Ok(Some(data)) = notify.try_next().await {
-                event!(Level::INFO, "received bike data {:?}", data);
+                event!(Level::DEBUG, "received bike data {:?}", data);
                 let _ = data_tx.send(data);
                 if self.is_recording {
                     self.data.push(data);
