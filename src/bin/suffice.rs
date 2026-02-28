@@ -248,7 +248,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         return Err(format!("{} not found", target).into());
     }
     let device = device.unwrap();
-    let trainer = Trainer::<BluetoothDevice>::new(device).await;
+    let mut trainer = Trainer::<BluetoothDevice>::new(device).await;
 
     let (cmd_tx, cmd_rx) = mpsc::unbounded_channel::<Command>();
     let (data_tx, data_rx) = broadcast::channel::<BikeData>(100);

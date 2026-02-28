@@ -8,6 +8,9 @@ pub enum Command {
     Reset,
     Resist(u16),
     Power(i16),
+    StartRecord,
+    StopRecord,
+    Quit,
 }
 
 #[derive(Debug, Clone)]
@@ -15,6 +18,8 @@ pub struct Trainer<T: FitnessDevice> {
     device: T,
     resistance_range: Option<Range>,
     power_range: Option<Range>,
+    data: Vec<BikeData>,
+    is_recording: bool,
 }
 
 impl<T: FitnessDevice> Trainer<T> {
@@ -24,13 +29,15 @@ impl<T: FitnessDevice> Trainer<T> {
                 device,
                 power_range,
                 resistance_range,
+                data: Vec::<BikeData>::new(),
+                is_recording: false,
             }
         } else {
             panic!()
         }
     }
     pub async fn run(
-        &self,
+        &mut self,
         mut cmd_rx: tokio::sync::mpsc::UnboundedReceiver<Command>,
         data_tx: tokio::sync::broadcast::Sender<BikeData>,
     ) -> Result<(), Error> {
@@ -45,6 +52,9 @@ impl<T: FitnessDevice> Trainer<T> {
             if let Ok(Some(data)) = notify.try_next().await {
                 // eprintln!("GOT {:?}", data);
                 let _ = data_tx.send(data);
+                if self.is_recording {
+                    self.data.push(data);
+                }
             }
 
             if let Ok(c) = cmd_rx.try_recv() {
@@ -64,9 +74,20 @@ impl<T: FitnessDevice> Trainer<T> {
                             self.device.set_power(level).await?
                         }
                     }
+                    Command::StartRecord => self.is_recording = true,
+                    Command::StopRecord => {
+                        self.is_recording = false;
+                        let _ = self.save_fit_file();
+                    }
+                    Command::Quit => return Ok(()),
                 }
             }
         }
+    }
+
+    fn save_fit_file(&mut self) -> Result<(), Error> {
+        self.data.clear();
+        Ok(())
     }
 }
 
@@ -77,10 +98,12 @@ mod tests {
     use super::*;
     use crate::ftms::MockFitnessDevice;
     use mockall::predicate;
+    use std::pin::Pin;
     use tokio::sync::{broadcast, mpsc};
+    use tokio_stream::Stream;
 
     #[tokio::test]
-    async fn mytest() {
+    async fn test_trainer_run() {
         let mut mock = MockFitnessDevice::new();
         mock.expect_setup()
             .returning(|| Box::pin(ready(Ok((None, Some(Range::new(1, 10)))))));
@@ -90,7 +113,7 @@ mod tests {
             .times(1)
             .returning(|_x| Box::pin(ready(Ok(()))));
 
-        let trainer = Trainer::<MockFitnessDevice>::new(mock).await;
+        let mut trainer = Trainer::<MockFitnessDevice>::new(mock).await;
 
         let (cmd_tx, cmd_rx) = mpsc::unbounded_channel::<Command>();
         let (data_tx, _data_rx) = broadcast::channel::<BikeData>(100);
@@ -102,5 +125,51 @@ mod tests {
         let res = cmd_tx.send(Command::Resist(4));
         assert!(res.is_ok());
         handle.abort();
+    }
+
+    #[tokio::test]
+    async fn test_trainer_record() {
+        let mut mock_device = MockFitnessDevice::new();
+        mock_device
+            .expect_notifications()
+            // .returning(|| Box::pin(ready(Err(Error::other("foo")))));
+            //
+            .returning(|| {
+                let stream: Pin<Box<dyn Stream<Item = BikeData> + Send>> =
+                    Box::pin(tokio_stream::iter(vec![BikeData {
+                        power: Some(100),
+                        cadence: Some(80),
+                        speed: Some(20),
+                        resistance: Some(5),
+                        heart_rate: Some(80),
+                    }]));
+
+                Box::pin(ready(Ok(stream)))
+            });
+
+        let mut trainer = Trainer::<MockFitnessDevice> {
+            device: mock_device,
+            resistance_range: None,
+            power_range: None,
+            data: Vec::<BikeData>::new(),
+            is_recording: false,
+        };
+        trainer.data.push(BikeData {
+            power: Some(90),
+            cadence: Some(78),
+            speed: Some(20),
+            resistance: Some(5),
+            heart_rate: Some(81),
+        });
+
+        let (cmd_tx, cmd_rx) = mpsc::unbounded_channel::<Command>();
+        let (data_tx, _data_rx) = broadcast::channel::<BikeData>(100);
+
+        let _ = cmd_tx.send(Command::StartRecord);
+        let _ = cmd_tx.send(Command::StopRecord);
+        let _ = cmd_tx.send(Command::Quit);
+        let _ = trainer.run(cmd_rx, data_tx).await;
+
+        assert!(!trainer.is_recording);
     }
 }
