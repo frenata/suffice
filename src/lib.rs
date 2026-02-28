@@ -1,4 +1,4 @@
 pub mod bluetooth;
 pub mod ftms;
-pub mod record;
+mod record;
 pub mod trainer;

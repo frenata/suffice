@@ -11,7 +11,7 @@ use std::time::Duration;
 use tokio::time;
 use tokio_stream::{Stream, StreamExt};
 
-use crate::ftms::{BikeData, FitnessDevice, Range};
+use crate::ftms::{BikeData, FitnessData, FitnessDevice, Range};
 
 pub const RESISTANCE_RANGE: Uuid = uuid!("00002ad6-0000-1000-8000-00805f9b34fb");
 pub const POWER_RANGE: Uuid = uuid!("00002ad8-0000-1000-8000-00805f9b34fb");
@@ -109,7 +109,7 @@ impl FitnessDevice for BluetoothDevice {
         if let Ok(get_notif) = self.peripheral.notifications().await {
             let data = get_notif
                 .filter(|notify: &ValueNotification| matches!(notify.uuid, BIKE_DATA))
-                .map(|notify: ValueNotification| BikeData::parse(notify));
+                .map(|notify: ValueNotification| ValueNotification::parse(notify));
             Ok(Box::pin(data))
         } else {
             Err(Error::other("failed to get notifications".to_string()))
@@ -193,5 +193,109 @@ impl FitnessDevice for BluetoothDevice {
         } else {
             Ok(())
         }
+    }
+}
+
+impl FitnessData for ValueNotification {
+    fn parse(v: ValueNotification) -> BikeData {
+        let mut data = BikeData::default();
+        // NOTE: via spec: 4.9.1.1
+        // Important: this is simplified and not generically correct
+        // the order of data is tied to the flags available
+        // so if other flags (not checked for here) are present
+        // the mapping of bytes in the payload to fields will be wrong
+        if (v.value[0] & 0b00000001) == 0 {
+            // NOTE: this flag does double duty as both 'more data' (if on)
+            // and speed (if off)
+            // TODO: the BLE spec says this is i16, but we need to convert to u16 -- what's the best way?
+            data.speed = Some(u16::from_le_bytes(v.value[2..4].try_into().unwrap()));
+        }
+        if v.value[0] & 0b00000100 != 0 {
+            // cadence
+            data.cadence = Some(
+                (u16::from_le_bytes(v.value[4..6].try_into().unwrap()) / 2)
+                    .try_into()
+                    .unwrap(),
+            );
+        }
+        if v.value[0] & 0b00100000 != 0 {
+            // resistance
+            // TODO: the BLE spec says this is i16, but we need to convert to u8 -- what's the best way?
+            data.resistance = Some(
+                u16::from_le_bytes(v.value[6..8].try_into().unwrap())
+                    .try_into()
+                    .unwrap(),
+            );
+        }
+        if v.value[0] & 0b01000000 != 0 {
+            // power
+            // TODO: the BLE spec says this is i16, but we need to convert to u16 -- what's the best way?
+            data.power = Some(u16::from_le_bytes(v.value[8..10].try_into().unwrap()));
+        }
+        if v.value[1] & 0b00000010 != 0 {
+            // TODO heartrate
+            data.heart_rate = Some(u8::from_le_bytes(v.value[10..11].try_into().unwrap()));
+        }
+        data
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use uuid::Uuid;
+
+    #[test]
+    fn all_zero_values() {
+        let v: ValueNotification = ValueNotification {
+            uuid: Uuid::new_v4(),
+            value: vec![100, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        };
+        let actual = ValueNotification::parse(v);
+        let expected = BikeData {
+            power: Some(0),
+            cadence: Some(0),
+            resistance: Some(0),
+            heart_rate: Some(0),
+            speed: Some(0),
+        };
+
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn no_flag_bits() {
+        let v: ValueNotification = ValueNotification {
+            uuid: Uuid::new_v4(),
+            value: vec![1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        };
+        let actual = ValueNotification::parse(v);
+        let expected = BikeData {
+            power: None,
+            cadence: None,
+            resistance: None,
+            heart_rate: None,
+            speed: None,
+        };
+
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn arbitrary_data() {
+        let v: ValueNotification = ValueNotification {
+            uuid: Uuid::new_v4(),
+            value: vec![100, 2, 34, 2, 17, 0, 77, 0, 9, 9, 55],
+        };
+        let actual = ValueNotification::parse(v);
+        let expected = BikeData {
+            power: Some(2313),
+            cadence: Some(8),
+            resistance: Some(77),
+            heart_rate: Some(55),
+            speed: Some(546),
+        };
+
+        assert_eq!(actual, expected);
     }
 }
