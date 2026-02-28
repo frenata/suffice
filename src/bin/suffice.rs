@@ -30,7 +30,7 @@ enum Mode {
 
 #[derive(Debug)]
 struct Stats {
-    power: fixed_deque::Deque<i16>,
+    power: fixed_deque::Deque<u16>,
     cadence: fixed_deque::Deque<u8>,
     heart_rate: fixed_deque::Deque<u8>,
 }
@@ -141,6 +141,13 @@ impl App {
             KeyCode::Down => self.less(),
             KeyCode::Right => self.change_mode(1),
             KeyCode::Left => self.change_mode(-1),
+            KeyCode::Char('r') => {
+                let _ = self
+                    .to_trainer
+                    .as_ref()
+                    .expect("")
+                    .send(Command::ToggleRecording);
+            }
             _ => {}
         }
 
@@ -198,6 +205,8 @@ impl Widget for &App {
             "<Up>".blue().bold(),
             " Less ".into(),
             "<Down>".blue().bold(),
+            " Record ".into(),
+            "<R>".blue().bold(),
             " Quit ".into(),
             "<Q> ".blue().bold(),
         ]);
@@ -248,7 +257,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         return Err(format!("{} not found", target).into());
     }
     let device = device.unwrap();
-    let trainer = Trainer::<BluetoothDevice>::new(device).await;
+    let mut trainer = Trainer::<BluetoothDevice>::new(device).await;
 
     let (cmd_tx, cmd_rx) = mpsc::unbounded_channel::<Command>();
     let (data_tx, data_rx) = broadcast::channel::<BikeData>(100);
@@ -293,19 +302,22 @@ mod tests {
             "┃                                                ┃",
             "┃                                                ┃",
             "┃                                                ┃",
-            "┗━━━━━━━━ More <Up> Less <Down> Quit <Q> ━━━━━━━━┛",
+            "┗━━ More <Up> Less <Down> Record <R> Quit <Q> ━━━┛",
         ]);
         let title_style = Style::new().bold();
         let counter_style = Style::new().yellow();
         let key_style = Style::new().blue().bold();
         expected.set_style(Rect::new(15, 0, 19, 1), title_style);
         expected.set_style(Rect::new(31, 1, 1, 1), counter_style);
+
         expected.set_style(Rect::new(29, 3, 3, 1), counter_style);
         expected.set_style(Rect::new(30, 4, 3, 1), counter_style);
         expected.set_style(Rect::new(31, 5, 3, 1), counter_style);
-        expected.set_style(Rect::new(15, 9, 4, 1), key_style);
-        expected.set_style(Rect::new(25, 9, 6, 1), key_style);
-        expected.set_style(Rect::new(37, 9, 4, 1), key_style);
+
+        expected.set_style(Rect::new(9, 9, 4, 1), key_style);
+        expected.set_style(Rect::new(19, 9, 6, 1), key_style);
+        expected.set_style(Rect::new(33, 9, 3, 1), key_style);
+        expected.set_style(Rect::new(42, 9, 4, 1), key_style);
 
         assert_eq!(buf, expected);
     }
@@ -357,19 +369,22 @@ mod tests {
             "┃                                                ┃",
             "┃                                                ┃",
             "┃                                                ┃",
-            "┗━━━━━━━━ More <Up> Less <Down> Quit <Q> ━━━━━━━━┛",
+            "┗━━ More <Up> Less <Down> Record <R> Quit <Q> ━━━┛",
         ]);
         let title_style = Style::new().bold();
         let counter_style = Style::new().yellow();
         let key_style = Style::new().blue().bold();
         expected.set_style(Rect::new(15, 0, 19, 1), title_style);
         expected.set_style(Rect::new(31, 1, 1, 1), counter_style);
+
         expected.set_style(Rect::new(27, 3, 6, 1), counter_style);
         expected.set_style(Rect::new(29, 4, 5, 1), counter_style);
         expected.set_style(Rect::new(30, 5, 5, 1), counter_style);
-        expected.set_style(Rect::new(15, 9, 4, 1), key_style);
-        expected.set_style(Rect::new(25, 9, 6, 1), key_style);
-        expected.set_style(Rect::new(37, 9, 4, 1), key_style);
+
+        expected.set_style(Rect::new(9, 9, 4, 1), key_style);
+        expected.set_style(Rect::new(19, 9, 6, 1), key_style);
+        expected.set_style(Rect::new(33, 9, 3, 1), key_style);
+        expected.set_style(Rect::new(42, 9, 4, 1), key_style);
 
         assert_eq!(buf, expected);
     }

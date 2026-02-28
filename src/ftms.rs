@@ -10,11 +10,11 @@ use mockall::{automock, predicate::*};
 
 #[derive(Default, Debug, Clone, Copy, PartialEq)]
 pub struct BikeData {
-    pub power: Option<i16>,
+    pub power: Option<u16>,
     pub cadence: Option<u8>,
-    pub resistance: Option<i16>,
+    pub resistance: Option<u8>,
     pub heart_rate: Option<u8>,
-    pub speed: Option<i16>,
+    pub speed: Option<u16>,
 }
 
 impl BikeData {
@@ -28,7 +28,8 @@ impl BikeData {
         if (v.value[0] & 0b00000001) == 0 {
             // NOTE: this flag does double duty as both 'more data' (if on)
             // and speed (if off)
-            data.speed = Some(i16::from_le_bytes(v.value[2..4].try_into().unwrap()));
+            // TODO: the BLE spec says this is i16, but we need to convert to u16 -- what's the best way?
+            data.speed = Some(u16::from_le_bytes(v.value[2..4].try_into().unwrap()));
         }
         if v.value[0] & 0b00000100 != 0 {
             // cadence
@@ -40,11 +41,17 @@ impl BikeData {
         }
         if v.value[0] & 0b00100000 != 0 {
             // resistance
-            data.resistance = Some(i16::from_le_bytes(v.value[6..8].try_into().unwrap()));
+            // TODO: the BLE spec says this is i16, but we need to convert to u8 -- what's the best way?
+            data.resistance = Some(
+                u16::from_le_bytes(v.value[6..8].try_into().unwrap())
+                    .try_into()
+                    .unwrap(),
+            );
         }
         if v.value[0] & 0b01000000 != 0 {
             // power
-            data.power = Some(i16::from_le_bytes(v.value[8..10].try_into().unwrap()));
+            // TODO: the BLE spec says this is i16, but we need to convert to u16 -- what's the best way?
+            data.power = Some(u16::from_le_bytes(v.value[8..10].try_into().unwrap()));
         }
         if v.value[1] & 0b00000010 != 0 {
             // TODO heartrate
