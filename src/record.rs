@@ -58,6 +58,8 @@ fn to_message(data: &BikeData) -> Message {
         rec.resistance = resistance;
     }
 
+    rec.timestamp = DateTime(data.time.timestamp() as u32);
+
     Message::from(rec)
 }
 
