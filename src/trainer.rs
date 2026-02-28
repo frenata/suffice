@@ -11,8 +11,7 @@ pub enum Command {
     Reset,
     Resist(u16),
     Power(i16),
-    StartRecord,
-    StopRecord,
+    ToggleRecording,
     Quit,
 }
 
@@ -77,13 +76,17 @@ impl<T: FitnessDevice> Trainer<T> {
                             self.device.set_power(level).await?
                         }
                     }
-                    Command::StartRecord => self.is_recording = true,
-                    Command::StopRecord => {
-                        self.is_recording = false;
-                        if let Ok(_res) = record::save_file(self.data.clone()) {
-                            self.data.clear();
+                    Command::ToggleRecording => match self.is_recording {
+                        true => {
+                            self.is_recording = false;
+                            if let Ok(_res) = record::save_file(self.data.clone()) {
+                                self.data.clear();
+                            }
                         }
-                    }
+                        false => {
+                            self.is_recording = true;
+                        }
+                    },
                     Command::Quit => return Ok(()),
                 }
             }
@@ -165,8 +168,8 @@ mod tests {
         let (cmd_tx, cmd_rx) = mpsc::unbounded_channel::<Command>();
         let (data_tx, _data_rx) = broadcast::channel::<BikeData>(100);
 
-        let _ = cmd_tx.send(Command::StartRecord);
-        let _ = cmd_tx.send(Command::StopRecord);
+        let _ = cmd_tx.send(Command::ToggleRecording);
+        let _ = cmd_tx.send(Command::ToggleRecording);
         let _ = cmd_tx.send(Command::Quit);
         let _ = trainer.run(cmd_rx, data_tx).await;
 
