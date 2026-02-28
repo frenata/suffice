@@ -1,7 +1,7 @@
 use btleplug::api::ValueNotification;
 use uuid::{Uuid, uuid};
 
-use std::io::{Error, ErrorKind};
+use std::io::Error;
 use std::pin::Pin;
 
 use btleplug::api::{Central, Manager as _, Peripheral as PeriTrait, ScanFilter};
@@ -59,10 +59,10 @@ impl FitnessDevice for BluetoothDevice {
         let mut resistance_range = None;
 
         if let Err(e) = self.peripheral.connect().await {
-            return Err(Error::new(ErrorKind::Other, e.to_string()));
+            return Err(Error::other(e.to_string()));
         }
         if let Err(e) = self.peripheral.discover_services().await {
-            return Err(Error::new(ErrorKind::Other, e.to_string()));
+            return Err(Error::other(e.to_string()));
         }
         for c in self.peripheral.characteristics() {
             if c.uuid == RESISTANCE_RANGE
@@ -79,27 +79,27 @@ impl FitnessDevice for BluetoothDevice {
         }
 
         for c in self.peripheral.characteristics() {
-            if c.uuid == MACHINE_STATUS {
-                if let Err(e) = self.peripheral.subscribe(&c).await {
-                    return Err(Error::new(ErrorKind::Other, e.to_string()));
-                }
+            if c.uuid == MACHINE_STATUS
+                && let Err(e) = self.peripheral.subscribe(&c).await
+            {
+                return Err(Error::other(e.to_string()));
             }
 
-            if c.uuid == TRAINING_STATUS {
-                if let Err(e) = self.peripheral.subscribe(&c).await {
-                    return Err(Error::new(ErrorKind::Other, e.to_string()));
-                }
+            if c.uuid == TRAINING_STATUS
+                && let Err(e) = self.peripheral.subscribe(&c).await
+            {
+                return Err(Error::other(e.to_string()));
             }
 
             if c.uuid == MACHINE_CONTROL {
                 if let Err(e) = self.peripheral.subscribe(&c).await {
-                    return Err(Error::new(ErrorKind::Other, e.to_string()));
+                    return Err(Error::other(e.to_string()));
                 }
                 self.control = Some(c);
-            } else if c.uuid == BIKE_DATA {
-                if let Err(e) = self.peripheral.subscribe(&c).await {
-                    return Err(Error::new(ErrorKind::Other, e.to_string()));
-                }
+            } else if c.uuid == BIKE_DATA
+                && let Err(e) = self.peripheral.subscribe(&c).await
+            {
+                return Err(Error::other(e.to_string()));
             }
         }
         Ok((power_range, resistance_range))
@@ -108,17 +108,11 @@ impl FitnessDevice for BluetoothDevice {
     async fn notifications(&self) -> Result<Pin<Box<dyn Stream<Item = BikeData> + Send>>, Error> {
         if let Ok(get_notif) = self.peripheral.notifications().await {
             let data = get_notif
-                .filter(|notify: &ValueNotification| match notify.uuid {
-                    BIKE_DATA => true,
-                    _ => false,
-                })
+                .filter(|notify: &ValueNotification| matches!(notify.uuid, BIKE_DATA))
                 .map(|notify: ValueNotification| BikeData::parse(notify));
             Ok(Box::pin(data))
         } else {
-            return Err(Error::new(
-                ErrorKind::Other,
-                "failed to get notifications".to_string(),
-            ));
+            Err(Error::other("failed to get notifications".to_string()))
         }
     }
 
@@ -136,7 +130,7 @@ impl FitnessDevice for BluetoothDevice {
             )
             .await
         {
-            return Err(Error::new(ErrorKind::Other, err.to_string()));
+            return Err(Error::other(err.to_string()));
         }
 
         if let Err(err) = self
@@ -148,7 +142,7 @@ impl FitnessDevice for BluetoothDevice {
             )
             .await
         {
-            return Err(Error::new(ErrorKind::Other, err.to_string()));
+            return Err(Error::other(err.to_string()));
         }
 
         if let Err(err) = self
@@ -160,7 +154,7 @@ impl FitnessDevice for BluetoothDevice {
             )
             .await
         {
-            return Err(Error::new(ErrorKind::Other, err.to_string()));
+            return Err(Error::other(err.to_string()));
         }
         Ok(())
     }
@@ -177,7 +171,7 @@ impl FitnessDevice for BluetoothDevice {
             )
             .await
         {
-            Err(Error::new(ErrorKind::Other, err.to_string()))
+            Err(Error::other(err.to_string()))
         } else {
             Ok(())
         }
@@ -195,7 +189,7 @@ impl FitnessDevice for BluetoothDevice {
             )
             .await
         {
-            Err(Error::new(ErrorKind::Other, err.to_string()))
+            Err(Error::other(err.to_string()))
         } else {
             Ok(())
         }

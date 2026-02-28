@@ -21,9 +21,9 @@ impl<T: FitnessDevice> Trainer<T> {
     pub async fn new(mut device: T) -> Trainer<T> {
         if let Ok((power_range, resistance_range)) = device.setup().await {
             Trainer {
-                device: device,
-                power_range: power_range,
-                resistance_range: resistance_range,
+                device,
+                power_range,
+                resistance_range,
             }
         } else {
             panic!()
@@ -52,14 +52,14 @@ impl<T: FitnessDevice> Trainer<T> {
                     Command::Reset => self.device.reset().await?,
                     Command::Resist(level) => {
                         if let Some(r) = self.resistance_range
-                            && r.is_in(level)
+                            && r.contains(level)
                         {
                             self.device.set_resistance(level).await?
                         }
                     }
                     Command::Power(level) => {
                         if let Some(r) = self.power_range
-                            && r.is_in(level.try_into().unwrap())
+                            && r.contains(level.try_into().unwrap())
                         {
                             self.device.set_power(level).await?
                         }
@@ -67,5 +67,40 @@ impl<T: FitnessDevice> Trainer<T> {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::future::ready;
+
+    use super::*;
+    use crate::ftms::MockFitnessDevice;
+    use mockall::predicate;
+    use tokio::sync::{broadcast, mpsc};
+
+    #[tokio::test]
+    async fn mytest() {
+        let mut mock = MockFitnessDevice::new();
+        mock.expect_setup()
+            .returning(|| Box::pin(ready(Ok((None, Some(Range::new(1, 10)))))));
+
+        mock.expect_set_resistance()
+            .with(predicate::eq(4))
+            .times(1)
+            .returning(|_x| Box::pin(ready(Ok(()))));
+
+        let trainer = Trainer::<MockFitnessDevice>::new(mock).await;
+
+        let (cmd_tx, cmd_rx) = mpsc::unbounded_channel::<Command>();
+        let (data_tx, _data_rx) = broadcast::channel::<BikeData>(100);
+
+        let handle = tokio::spawn(async move {
+            let _ = trainer.run(cmd_rx, data_tx).await;
+        });
+
+        let res = cmd_tx.send(Command::Resist(4));
+        assert!(res.is_ok());
+        handle.abort();
     }
 }
