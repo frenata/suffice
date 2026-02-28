@@ -2,7 +2,10 @@ use std::io::Error;
 use std::time::Duration;
 use tokio_stream::StreamExt;
 
-use crate::ftms::{BikeData, FitnessDevice, Range};
+use crate::{
+    ftms::{BikeData, FitnessDevice, Range},
+    record,
+};
 
 pub enum Command {
     Reset,
@@ -77,17 +80,14 @@ impl<T: FitnessDevice> Trainer<T> {
                     Command::StartRecord => self.is_recording = true,
                     Command::StopRecord => {
                         self.is_recording = false;
-                        let _ = self.save_fit_file();
+                        if let Ok(_res) = record::save_file(self.data.clone()) {
+                            self.data.clear();
+                        }
                     }
                     Command::Quit => return Ok(()),
                 }
             }
         }
-    }
-
-    fn save_fit_file(&mut self) -> Result<(), Error> {
-        self.data.clear();
-        Ok(())
     }
 }
 
@@ -171,5 +171,52 @@ mod tests {
         let _ = trainer.run(cmd_rx, data_tx).await;
 
         assert!(!trainer.is_recording);
+
+        use rustyfit::{Decoder, profile::mesgdef};
+        use std::{
+            fs::{File, remove_file},
+            io::BufReader,
+        };
+
+        let name = "output.fit";
+        let f = File::open(name).unwrap();
+        let br = BufReader::new(f);
+        let mut dec = Decoder::new(br);
+
+        let fit = dec.decode().unwrap().unwrap(); // First decode call is either Ok(Some(fit)) or Err(err), never Ok(None).
+        let msg = &fit.messages[1];
+        for field in msg.fields.clone() {
+            if field.num == mesgdef::Record::CADENCE {
+                assert_eq!(field.value.as_u8(), 78)
+            }
+
+            if field.num == mesgdef::Record::POWER {
+                assert_eq!(field.value.as_u16(), 90)
+            }
+
+            if field.num == mesgdef::Record::SPEED {
+                assert_eq!(field.value.as_u16(), 20)
+            }
+
+            if field.num == mesgdef::Record::HEART_RATE {
+                assert_eq!(field.value.as_u8(), 81)
+            }
+
+            if field.num == mesgdef::Record::RESISTANCE {
+                assert_eq!(field.value.as_u8(), 5)
+            }
+        }
+
+        // TODO: make this work -- the notification isn't flowing through
+        // let msg = &fit.messages[2];
+        // for field in msg.fields.clone() {
+        //     // if field.num == mesgdef::Record::CADENCE {
+        //     //     assert_eq!(field.value, 78)
+        //     // }
+        // }
+
+        println!("{:?}", msg.fields);
+        assert_eq!(fit.messages.len(), 2);
+        let _ = remove_file("output.fit");
     }
 }

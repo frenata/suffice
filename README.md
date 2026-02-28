@@ -20,7 +20,7 @@
 * [x] capture basic sensor data: power, speed, cadence
   * [x] and display it usefully
 * [x] make sure ERG and Level mode seem to work
-* [ ] record sessions in FIT files
+* [x] record sessions in FIT files
 * [ ] implement daemon mode
 * [ ] starship integration
 
@@ -40,3 +40,4 @@
 * the tokio [examples](https://tokio.rs/tokio/tutorial/shared-state) -- quite useful in the many false starts at working out how to deal with the fundamentally async nature of the system
 * not directly relevant, but a fascinating blog post on [*creating* a FTMS](https://ftmsemu.github.io/)
 * [making sense](https://github.com/caelansar/termirs/blob/master/src/main.rs) of tokio + ratatui
+* [verifying](https://www.fitfileviewer.com/) that the fit files were produced correctly

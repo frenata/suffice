@@ -30,7 +30,7 @@ enum Mode {
 
 #[derive(Debug)]
 struct Stats {
-    power: fixed_deque::Deque<i16>,
+    power: fixed_deque::Deque<u16>,
     cadence: fixed_deque::Deque<u8>,
     heart_rate: fixed_deque::Deque<u8>,
 }
