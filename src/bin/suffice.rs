@@ -121,10 +121,15 @@ impl App {
         }
 
         if let Ok(data) = self.from_trainer.as_mut().expect("").try_recv() {
-            eprintln!("{:?}", data);
-            self.stats.power.push_back(data.power.unwrap());
-            self.stats.cadence.push_back(data.cadence.unwrap());
-            self.stats.heart_rate.push_back(data.heart_rate.unwrap());
+            if let Some(stat) = data.power {
+                self.stats.power.push_back(stat);
+            }
+            if let Some(stat) = data.cadence {
+                self.stats.cadence.push_back(stat);
+            }
+            if let Some(stat) = data.heart_rate {
+                self.stats.heart_rate.push_back(stat);
+            }
         }
         Ok(())
     }
@@ -215,15 +220,15 @@ impl Widget for &App {
             Line::from(vec![]),
             Line::from(vec![
                 "3s Power: ".into(),
-                format!("{:?}", power_3s).yellow(),
+                format!("{:.2}", power_3s).yellow(),
             ]),
             Line::from(vec![
                 "3s Cadence: ".into(),
-                format!("{:?}", cadence_3s).yellow(),
+                format!("{:.2}", cadence_3s).yellow(),
             ]),
             Line::from(vec![
                 "3s Heart Rate: ".into(),
-                format!("{:?}", heart_3s).yellow(),
+                format!("{:.2}", heart_3s).yellow(),
             ]),
         ]);
 
@@ -263,33 +268,109 @@ async fn main() -> Result<(), Box<dyn Error>> {
     Ok(res?)
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-//     use ratatui::style::Style;
-//
-//     #[test]
-//     fn render() {
-//         let app = App::default();
-//         let mut buf = Buffer::empty(Rect::new(0, 0, 50, 4));
-//
-//         app.render(buf.area, &mut buf);
-//
-//         let mut expected = Buffer::with_lines(vec![
-//             "┏━━━━━━━━━━━━━━ -= It Suffices =- ━━━━━━━━━━━━━━━┓",
-//             "┃                  Resistance: 0                 ┃",
-//             "┃                                                ┃",
-//             "┗━━━━━━━━ More <Up> Less <Down> Quit <Q> ━━━━━━━━┛",
-//         ]);
-//         let title_style = Style::new().bold();
-//         let counter_style = Style::new().yellow();
-//         let key_style = Style::new().blue().bold();
-//         expected.set_style(Rect::new(15, 0, 19, 1), title_style);
-//         expected.set_style(Rect::new(31, 1, 1, 1), counter_style);
-//         expected.set_style(Rect::new(15, 3, 4, 1), key_style);
-//         expected.set_style(Rect::new(25, 3, 6, 1), key_style);
-//         expected.set_style(Rect::new(37, 3, 4, 1), key_style);
-//
-//         assert_eq!(buf, expected);
-//     }
-// }
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ratatui::style::Style;
+
+    #[test]
+    fn render_no_data() {
+        let mut app = App::default();
+        let mut buf = Buffer::empty(Rect::new(0, 0, 50, 10));
+
+        let (data_tx, data_rx) = broadcast::channel::<BikeData>(100);
+        app.from_trainer = Some(data_rx);
+        app.handle_events();
+        app.render(buf.area, &mut buf);
+
+        let mut expected = Buffer::with_lines(vec![
+            "┏━━━━━━━━━━━━━━ -= It Suffices =- ━━━━━━━━━━━━━━━┓",
+            "┃                  Resistance: 0                 ┃",
+            "┃                                                ┃",
+            "┃                  3s Power: NaN                 ┃",
+            "┃                 3s Cadence: NaN                ┃",
+            "┃               3s Heart Rate: NaN               ┃",
+            "┃                                                ┃",
+            "┃                                                ┃",
+            "┃                                                ┃",
+            "┗━━━━━━━━ More <Up> Less <Down> Quit <Q> ━━━━━━━━┛",
+        ]);
+        let title_style = Style::new().bold();
+        let counter_style = Style::new().yellow();
+        let key_style = Style::new().blue().bold();
+        expected.set_style(Rect::new(15, 0, 19, 1), title_style);
+        expected.set_style(Rect::new(31, 1, 1, 1), counter_style);
+        expected.set_style(Rect::new(29, 3, 3, 1), counter_style);
+        expected.set_style(Rect::new(30, 4, 3, 1), counter_style);
+        expected.set_style(Rect::new(31, 5, 3, 1), counter_style);
+        expected.set_style(Rect::new(15, 9, 4, 1), key_style);
+        expected.set_style(Rect::new(25, 9, 6, 1), key_style);
+        expected.set_style(Rect::new(37, 9, 4, 1), key_style);
+
+        assert_eq!(buf, expected);
+    }
+
+    #[test]
+    fn render_with_data() {
+        let mut app = App::default();
+        let mut buf = Buffer::empty(Rect::new(0, 0, 50, 10));
+
+        let (data_tx, data_rx) = broadcast::channel::<BikeData>(100);
+        app.from_trainer = Some(data_rx);
+
+        data_tx.send(BikeData {
+            power: Some(100),
+            cadence: Some(50),
+            heart_rate: Some(93),
+            resistance: None,
+            speed: Some(10),
+        });
+
+        data_tx.send(BikeData {
+            power: Some(120),
+            cadence: Some(52),
+            heart_rate: Some(90),
+            resistance: None,
+            speed: Some(10),
+        });
+
+        data_tx.send(BikeData {
+            power: Some(125),
+            cadence: Some(51),
+            heart_rate: Some(91),
+            resistance: None,
+            speed: Some(10),
+        });
+
+        app.handle_events();
+        app.handle_events();
+        app.handle_events();
+        app.render(buf.area, &mut buf);
+
+        let mut expected = Buffer::with_lines(vec![
+            "┏━━━━━━━━━━━━━━ -= It Suffices =- ━━━━━━━━━━━━━━━┓",
+            "┃                  Resistance: 0                 ┃",
+            "┃                                                ┃",
+            "┃                3s Power: 115.00                ┃",
+            "┃                3s Cadence: 51.00               ┃",
+            "┃              3s Heart Rate: 91.33              ┃",
+            "┃                                                ┃",
+            "┃                                                ┃",
+            "┃                                                ┃",
+            "┗━━━━━━━━ More <Up> Less <Down> Quit <Q> ━━━━━━━━┛",
+        ]);
+        let title_style = Style::new().bold();
+        let counter_style = Style::new().yellow();
+        let key_style = Style::new().blue().bold();
+        expected.set_style(Rect::new(15, 0, 19, 1), title_style);
+        expected.set_style(Rect::new(31, 1, 1, 1), counter_style);
+        expected.set_style(Rect::new(27, 3, 6, 1), counter_style);
+        expected.set_style(Rect::new(29, 4, 5, 1), counter_style);
+        expected.set_style(Rect::new(30, 5, 5, 1), counter_style);
+        expected.set_style(Rect::new(15, 9, 4, 1), key_style);
+        expected.set_style(Rect::new(25, 9, 6, 1), key_style);
+        expected.set_style(Rect::new(37, 9, 4, 1), key_style);
+
+        assert_eq!(buf, expected);
+    }
+}
