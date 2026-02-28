@@ -15,11 +15,11 @@ use ratatui::{
     text::{Line, Text},
     widgets::{Block, Paragraph, Widget},
 };
-use suffice::ftms::BikeData;
+use tokio::sync::{broadcast, mpsc};
 
 use suffice::bluetooth::BluetoothDevice;
+use suffice::ftms::BikeData;
 use suffice::trainer::{Command, Trainer};
-use tokio::sync::{broadcast, mpsc};
 
 #[derive(Debug, Default)]
 enum Mode {
