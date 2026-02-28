@@ -224,7 +224,7 @@ mod tests {
         // }
 
         println!("{:?}", msg.fields);
-        assert_eq!(fit.messages.len(), 2);
+        assert_eq!(fit.messages.len(), 4);
         let _ = remove_file("output.fit");
     }
 }
