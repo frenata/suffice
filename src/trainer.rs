@@ -1,6 +1,7 @@
 use std::io::Error;
 use std::time::Duration;
 use tokio_stream::StreamExt;
+use tracing::instrument;
 
 use crate::{
     ftms::{BikeData, FitnessDevice, Range},
@@ -24,7 +25,7 @@ pub struct Trainer<T: FitnessDevice> {
     is_recording: bool,
 }
 
-impl<T: FitnessDevice> Trainer<T> {
+impl<T: FitnessDevice + std::fmt::Debug> Trainer<T> {
     pub async fn new(mut device: T) -> Trainer<T> {
         if let Ok((power_range, resistance_range)) = device.setup().await {
             Trainer {
@@ -38,6 +39,8 @@ impl<T: FitnessDevice> Trainer<T> {
             panic!()
         }
     }
+
+    #[instrument(skip(self, cmd_rx, data_tx))]
     pub async fn run(
         &mut self,
         mut cmd_rx: tokio::sync::mpsc::UnboundedReceiver<Command>,
@@ -145,6 +148,7 @@ mod tests {
                         speed: Some(20),
                         resistance: Some(5),
                         heart_rate: Some(80),
+                        ..BikeData::default()
                     }]));
 
                 Box::pin(ready(Ok(stream)))
@@ -163,6 +167,7 @@ mod tests {
             speed: Some(20),
             resistance: Some(5),
             heart_rate: Some(81),
+            ..BikeData::default()
         });
 
         let (cmd_tx, cmd_rx) = mpsc::unbounded_channel::<Command>();

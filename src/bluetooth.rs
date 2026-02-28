@@ -10,6 +10,7 @@ use btleplug::platform::{Manager, Peripheral};
 use std::time::Duration;
 use tokio::time;
 use tokio_stream::{Stream, StreamExt};
+use tracing::{Level, event, instrument};
 
 use crate::ftms::{BikeData, FitnessData, FitnessDevice, Range};
 
@@ -23,12 +24,24 @@ pub const TRAINING_STATUS: Uuid = uuid!("00002ad3-0000-1000-8000-00805f9b34fb");
 pub const MACHINE_CONTROL: Uuid = uuid!("00002ad9-0000-1000-8000-00805f9b34fb");
 pub const BIKE_DATA: Uuid = uuid!("00002ad2-0000-1000-8000-00805f9b34fb");
 
+#[derive(Debug)]
 pub struct BluetoothDevice {
     peripheral: Peripheral,
     control: Option<Characteristic>,
 }
 
+impl std::fmt::Display for BluetoothDevice {
+    fn fmt(&self, format: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+        if let Err(e) = write!(format, "{}", self.peripheral.id()) {
+            Err(e)
+        } else {
+            Ok(())
+        }
+    }
+}
+
 impl BluetoothDevice {
+    #[instrument]
     pub async fn new(target: String) -> Option<BluetoothDevice> {
         let manager = Manager::new().await.unwrap();
         let adapters = manager.adapters().await.ok()?;
@@ -54,6 +67,7 @@ impl BluetoothDevice {
 }
 
 impl FitnessDevice for BluetoothDevice {
+    #[instrument]
     async fn setup(&mut self) -> Result<(Option<Range>, Option<Range>), Error> {
         let mut power_range = None;
         let mut resistance_range = None;
@@ -105,9 +119,14 @@ impl FitnessDevice for BluetoothDevice {
         Ok((power_range, resistance_range))
     }
 
+    #[instrument]
     async fn notifications(&self) -> Result<Pin<Box<dyn Stream<Item = BikeData> + Send>>, Error> {
         if let Ok(get_notif) = self.peripheral.notifications().await {
             let data = get_notif
+                .map(|notify| {
+                    event!(Level::INFO, "BLE notification: {:?}", notify);
+                    notify
+                })
                 .filter(|notify: &ValueNotification| matches!(notify.uuid, BIKE_DATA))
                 .map(|notify: ValueNotification| ValueNotification::parse(notify));
             Ok(Box::pin(data))
@@ -116,6 +135,7 @@ impl FitnessDevice for BluetoothDevice {
         }
     }
 
+    #[instrument(skip(self))]
     async fn reset(&self) -> Result<(), Error> {
         // 1. Request Control
         // 2. Reset params (which gives up control!)
@@ -130,6 +150,11 @@ impl FitnessDevice for BluetoothDevice {
             )
             .await
         {
+            event!(
+                Level::ERROR,
+                "failed to request control {}",
+                err.to_string()
+            );
             return Err(Error::other(err.to_string()));
         }
 
@@ -142,6 +167,7 @@ impl FitnessDevice for BluetoothDevice {
             )
             .await
         {
+            event!(Level::ERROR, "failed to reset {}", err.to_string());
             return Err(Error::other(err.to_string()));
         }
 
@@ -154,11 +180,17 @@ impl FitnessDevice for BluetoothDevice {
             )
             .await
         {
+            event!(
+                Level::ERROR,
+                "failed to request control {}",
+                err.to_string()
+            );
             return Err(Error::other(err.to_string()));
         }
         Ok(())
     }
 
+    #[instrument(skip(self))]
     async fn set_resistance(&self, level: u16) -> Result<(), Error> {
         let mut data = u16::to_le_bytes(level).to_vec();
         data.insert(0, 4);
@@ -171,12 +203,15 @@ impl FitnessDevice for BluetoothDevice {
             )
             .await
         {
+            event!(Level::ERROR, "{}", err.to_string());
             Err(Error::other(err.to_string()))
         } else {
+            event!(Level::INFO, "");
             Ok(())
         }
     }
 
+    #[instrument(skip(self))]
     async fn set_power(&self, level: i16) -> Result<(), Error> {
         let mut data = i16::to_le_bytes(level).to_vec();
         data.insert(0, 5);
@@ -189,8 +224,10 @@ impl FitnessDevice for BluetoothDevice {
             )
             .await
         {
+            event!(Level::ERROR, "{}", err.to_string());
             Err(Error::other(err.to_string()))
         } else {
+            event!(Level::INFO, "");
             Ok(())
         }
     }
@@ -258,6 +295,7 @@ mod tests {
             resistance: Some(0),
             heart_rate: Some(0),
             speed: Some(0),
+            ..Default::default()
         };
 
         assert_eq!(actual, expected);
@@ -270,13 +308,7 @@ mod tests {
             value: vec![1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
         };
         let actual = ValueNotification::parse(v);
-        let expected = BikeData {
-            power: None,
-            cadence: None,
-            resistance: None,
-            heart_rate: None,
-            speed: None,
-        };
+        let expected = BikeData::default();
 
         assert_eq!(actual, expected);
     }
@@ -294,6 +326,7 @@ mod tests {
             resistance: Some(77),
             heart_rate: Some(55),
             speed: Some(546),
+            ..Default::default()
         };
 
         assert_eq!(actual, expected);

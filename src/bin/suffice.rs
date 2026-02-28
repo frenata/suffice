@@ -250,6 +250,12 @@ impl Widget for &App {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
+    let subscriber = tracing_subscriber::fmt()
+        .compact()
+        .with_writer(std::io::stderr)
+        .finish();
+    tracing::subscriber::set_global_default(subscriber)?;
+
     let args: Vec<String> = env::args().collect();
     let target = args[1].clone();
     let device = BluetoothDevice::new(target.clone()).await;
@@ -336,6 +342,7 @@ mod tests {
             heart_rate: Some(93),
             resistance: None,
             speed: Some(10),
+            ..Default::default()
         });
 
         let _ = data_tx.send(BikeData {
@@ -344,6 +351,7 @@ mod tests {
             heart_rate: Some(90),
             resistance: None,
             speed: Some(10),
+            ..Default::default()
         });
 
         let _ = data_tx.send(BikeData {
@@ -352,6 +360,7 @@ mod tests {
             heart_rate: Some(91),
             resistance: None,
             speed: Some(10),
+            ..Default::default()
         });
 
         let _ = app.handle_events();
