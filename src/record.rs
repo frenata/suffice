@@ -13,7 +13,7 @@ use std::{
     fs::File,
     io::{BufWriter, Write},
 };
-use tracing::instrument;
+use tracing::{Level, event, instrument};
 
 #[instrument(skip(data))]
 pub fn save_file(data: Vec<BikeData>) -> Result<(), Error> {
@@ -25,6 +25,7 @@ pub fn save_file(data: Vec<BikeData>) -> Result<(), Error> {
     let mut enc = Encoder::new(&mut bw);
 
     if let Err(e) = enc.encode(&mut to_fit(data)) {
+        event!(Level::ERROR, "failed to encode FIT {:?}", e);
         return Err(Error::other(e.to_string()));
     }
     bw.flush()?;
