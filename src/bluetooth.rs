@@ -116,6 +116,7 @@ impl FitnessDevice for BluetoothDevice {
                 return Err(Error::other(e.to_string()));
             }
         }
+        event!(Level::INFO, "Device config complete");
         Ok((power_range, resistance_range))
     }
 

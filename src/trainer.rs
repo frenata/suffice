@@ -1,7 +1,7 @@
 use std::io::Error;
 use std::time::Duration;
 use tokio_stream::StreamExt;
-use tracing::instrument;
+use tracing::{Level, event, instrument};
 
 use crate::{
     ftms::{BikeData, FitnessDevice, Range},
@@ -55,7 +55,7 @@ impl<T: FitnessDevice + std::fmt::Debug> Trainer<T> {
 
         loop {
             if let Ok(Some(data)) = notify.try_next().await {
-                // eprintln!("GOT {:?}", data);
+                event!(Level::INFO, "received bike data {:?}", data);
                 let _ = data_tx.send(data);
                 if self.is_recording {
                     self.data.push(data);
@@ -82,12 +82,15 @@ impl<T: FitnessDevice + std::fmt::Debug> Trainer<T> {
                     Command::ToggleRecording => match self.is_recording {
                         true => {
                             self.is_recording = false;
+                            event!(Level::INFO, "Finished recording");
                             if let Ok(_res) = record::save_file(self.data.clone()) {
+                                event!(Level::INFO, "FIT file saved");
                                 self.data.clear();
                             }
                         }
                         false => {
                             self.is_recording = true;
+                            event!(Level::INFO, "Began recording");
                         }
                     },
                     Command::Quit => return Ok(()),
