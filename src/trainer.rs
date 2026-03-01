@@ -54,10 +54,18 @@ impl<T: FitnessDevice + std::fmt::Debug> Trainer<T> {
             .timeout_repeating(tokio::time::interval(Duration::from_millis(200)));
 
         loop {
-            if let Ok(Some(data)) = notify.try_next().await {
+            if let Ok(Some(mut data)) = notify.try_next().await {
                 event!(Level::DEBUG, "received bike data {:?}", data);
                 let _ = data_tx.send(data);
                 if self.is_recording {
+                    if !self.data.is_empty()
+                        && let Some(speed) = data.speed
+                    {
+                        let last = self.data[self.data.len() - 1];
+                        let dt = data.time - last.time;
+                        let dist = (dt.as_seconds_f32() * (speed as f32 / 10.0)) as u32;
+                        data.distance = Some(dist);
+                    }
                     self.data.push(data);
                 }
             }

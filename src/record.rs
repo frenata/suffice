@@ -39,9 +39,10 @@ fn to_fit(data: Vec<BikeData>) -> FIT {
 
     // NOTE: required messages and fields via
     // https://developer.garmin.com/fit/file-types/activity/
+    let total_dist: u32 = data.iter().map(|bd| bd.distance.unwrap_or_default()).sum();
     let mut messages: Vec<Message> = data.iter().map(to_message).collect();
     messages.insert(0, Message::from(get_file_id(start)));
-    messages.push(Message::from(get_session(start, end)));
+    messages.push(Message::from(get_session(start, end, total_dist)));
     messages.push(Message::from(get_activity(start)));
 
     FIT {
@@ -60,7 +61,7 @@ fn test_to_fit() {
     let mut actual = to_fit(data);
     if let Ok(_res) = enc.encode(&mut actual) {}
 
-    assert_eq!(actual.file_header.data_size, 117);
+    assert_eq!(actual.file_header.data_size, 124);
 }
 
 fn to_message(data: &BikeData) -> Message {
@@ -81,6 +82,9 @@ fn to_message(data: &BikeData) -> Message {
     if let Some(resistance) = data.resistance {
         rec.resistance = resistance;
     }
+    if let Some(distance) = data.distance {
+        rec.distance = distance;
+    }
 
     rec.timestamp = to_fit_datetime(data.time);
 
@@ -96,7 +100,7 @@ fn get_file_id(time: DateTime<Local>) -> mesgdef::FileId {
     file_id
 }
 
-fn get_session(start: DateTime<Local>, end: DateTime<Local>) -> mesgdef::Session {
+fn get_session(start: DateTime<Local>, end: DateTime<Local>, distance: u32) -> mesgdef::Session {
     let mut session = mesgdef::Session::new();
     session.timestamp = to_fit_datetime(start);
     session.start_time = to_fit_datetime(start);
@@ -104,6 +108,7 @@ fn get_session(start: DateTime<Local>, end: DateTime<Local>) -> mesgdef::Session
     session.total_timer_time = (end.timestamp() - start.timestamp()) as u32;
     session.sport = Sport::CYCLING;
     session.sub_sport = SubSport::INDOOR_CYCLING;
+    session.total_distance = distance;
     session
 }
 

@@ -26,7 +26,7 @@
 * [ ] add screenshots/screencasts
 * [ ] implement daemon mode
 * [ ] starship integration
-* [ ] faked distance data (what algorithm does other software use?)
+* [x] faked distance data (what algorithm does other software use?)
 * [ ] proper cli args
   * [ ] help
   * [ ] verbose/quiet mode

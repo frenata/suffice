@@ -10,27 +10,17 @@ use mockall::{automock, predicate::*};
 
 #[derive(Derivative, Debug, Clone, Copy)]
 #[derivative(PartialEq)]
+#[derivative(Default)]
 pub struct BikeData {
-    pub power: Option<u16>,
-    pub cadence: Option<u8>,
-    pub resistance: Option<u8>,
-    pub heart_rate: Option<u8>,
-    pub speed: Option<u16>,
+    pub power: Option<u16>,     // watts
+    pub cadence: Option<u8>,    // rpm
+    pub resistance: Option<u8>, // unitless
+    pub heart_rate: Option<u8>, // bpm
+    pub speed: Option<u16>,     // mm/s
+    pub distance: Option<u32>,  // cm
     #[derivative(PartialEq = "ignore")]
+    #[derivative(Default(value = "Local::now()"))]
     pub time: DateTime<Local>,
-}
-
-impl Default for BikeData {
-    fn default() -> Self {
-        BikeData {
-            power: None,
-            cadence: None,
-            resistance: None,
-            heart_rate: None,
-            speed: None,
-            time: Local::now(),
-        }
-    }
 }
 
 pub trait FitnessData {
