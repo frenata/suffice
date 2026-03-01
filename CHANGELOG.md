@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * refactored: split up bluetooth protocol and the core trainer loop with a trait
 * testing: improved test coverage of trainer and TUI
 * feature: capability to record fit files
+* bugfix: prevent Trainer loop from exiting without recovering
+* improvement: provide backpressure/dedupe on commands to the trainer so it feels more responsive
 
 ## [0.1.0]
 

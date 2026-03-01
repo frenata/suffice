@@ -11,23 +11,32 @@ use mockall::{automock, predicate::*};
 #[derive(Derivative, Debug, Clone, Copy)]
 #[derivative(PartialEq)]
 #[derivative(Default)]
+/// A bundle of data collected or derviced from the trainer
 pub struct BikeData {
-    pub power: Option<u16>,     // watts
-    pub cadence: Option<u8>,    // rpm
-    pub resistance: Option<u8>, // unitless
-    pub heart_rate: Option<u8>, // bpm
-    pub speed: Option<u16>,     // mm/s
-    pub distance: Option<u32>,  // cm
+    /// Power is measured in watts.
+    pub power: Option<u16>,
+    /// Cadence is measured in revolutions-per-minute (rpm).
+    pub cadence: Option<u8>,
+    /// Resistance measures how hard the trainer is working against you.
+    pub resistance: Option<u8>,
+    /// Heart Rate is measured in beats-per-minute (bpm).
+    pub heart_rate: Option<u8>,
+    /// Speed is meausred in millimeters per second.
+    pub speed: Option<u16>,
+    /// Distance is measured in centimeters.
+    pub distance: Option<u32>,
     #[derivative(PartialEq = "ignore")]
     #[derivative(Default(value = "Local::now()"))]
+    /// Time is a timezone aware moment in time.
     pub time: DateTime<Local>,
 }
 
-pub trait FitnessData {
+pub(crate) trait FitnessData {
     fn parse(s: Self) -> BikeData;
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
+/// Range represents the possible scope of values
 pub struct Range {
     min: u16,
     max: u16,
@@ -36,9 +45,18 @@ pub struct Range {
 }
 
 impl Range {
+    /// Constructs a range given a minimum and maximum value.
     pub fn new(min: u16, max: u16) -> Range {
         Range { min, max, inc: 1 }
     }
+    /// Constructs a range from little-endian bytes.
+    ///
+    /// ```
+    /// use suffice::ftms::Range;
+    /// let r1 = Range::from_bytes(vec![1, 0, 10, 0, 1, 0]);
+    /// let r2 = Range::new(1, 10);
+    /// assert_eq!(r1, r2);
+    /// ```
     pub fn from_bytes(bytes: Vec<u8>) -> Range {
         Range {
             min: u16::from_le_bytes(bytes[0..2].try_into().unwrap()),
@@ -46,6 +64,7 @@ impl Range {
             inc: u16::from_le_bytes(bytes[4..6].try_into().unwrap()),
         }
     }
+    /// Returns true if n is valid within the range.
     pub fn contains(&self, n: u16) -> bool {
         // TODO check inc
         n >= self.min && n <= self.max
@@ -66,6 +85,7 @@ fn n_in_range() {
 }
 
 #[cfg_attr(test, automock)]
+/// A FitnessDevice represents the underlying connection to the hardware.
 pub trait FitnessDevice {
     fn setup(
         &mut self,

@@ -16,7 +16,8 @@ use std::{
 use tracing::{Level, event, instrument};
 
 #[instrument(skip(data))]
-pub fn save_file(data: Vec<BikeData>) -> Result<(), Error> {
+/// Saves a collection of BikeData to a FIT file on disk.
+pub(crate) fn save_file(data: Vec<BikeData>) -> Result<(), Error> {
     // NOTE: adapted from the example in the documentation
     // https://crates.io/crates/rustyfit#encode-using-mesgdef-module
     let fout_name = "output.fit";
