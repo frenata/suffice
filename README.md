@@ -13,7 +13,9 @@
 * a persistent UI, HUD, etc.
 * non-cycling machines
 
-## Feature Roadmap
+## Roadmap
+
+### v1 Features
 
 * [x] properly wrap the Trainer in an Arc and handle notifications in a thread
 * [x] basic REPL controls
@@ -21,16 +23,40 @@
   * [x] and display it usefully
 * [x] make sure ERG and Level mode seem to work
 * [x] record sessions in FIT files
+* [ ] add screenshots/screencasts
 * [ ] implement daemon mode
 * [ ] starship integration
+* [ ] faked distance data (what algorithm does other software use?)
+* [ ] proper cli args
+  * [ ] help
+  * [ ] verbose/quiet mode
+  * [ ] connect-test option
+* [ ] bling
+  * [ ] make gauges for resist/power level
+  * [ ] show a basic graph of stats
+  * [ ] animations / exhortations
 
-## DevEx Roadmap
+### v2+ Features
+
+* [ ] other connection types: ANT+ / WiFi
+* [ ] workouts
+* [ ] Sim mode
+
+### DevEx
 
 * [x] tests and measuring test coverage
 * [x] CI checks
 * [x] crates.io publication
-* [ ] tokio tracing logs
-* [ ] better error handling generally instead of reckless unwraps everywhere
+* [x] tokio tracing logs
+* [x] better error handling generally instead of reckless unwraps everywhere
+* [x] github branch protection
+* [ ] docstrings etc.
+
+### Bugs
+
+* [ ] sometimes the FIT file has more than one session -- why?
+* [ ] sometimes the trainer stops sending data back
+* [ ] rapid commands only slowly take effect (because we only loop events every 1s)
 
 ## Resources Used
 
