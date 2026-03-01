@@ -78,6 +78,7 @@ impl Default for Stats {
 
 #[derive(Debug, Derivative)]
 #[derivative(Default)]
+/// The main application data bundle
 pub struct App {
     resistance: i16,
     power: i16,
@@ -93,6 +94,7 @@ pub struct App {
 }
 
 impl App {
+    /// The run loop for ratatui
     pub async fn run(
         &mut self,
         terminal: &mut DefaultTerminal,

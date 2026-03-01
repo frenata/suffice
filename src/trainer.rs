@@ -8,6 +8,7 @@ use crate::{
     record,
 };
 
+/// Send `Commands` to interact with a running trainer's loop.
 pub enum Command {
     Reset,
     Resist(u16),
@@ -17,6 +18,7 @@ pub enum Command {
 }
 
 #[derive(Debug, Clone)]
+/// A Trainer is the core abstraction to connect and interact with a bike trainer.
 pub struct Trainer<T: FitnessDevice> {
     device: T,
     resistance_range: Option<Range>,
@@ -26,6 +28,7 @@ pub struct Trainer<T: FitnessDevice> {
 }
 
 impl<T: FitnessDevice + std::fmt::Debug> Trainer<T> {
+    /// Construct a new Trainer object that can be interacted with.
     pub async fn new(mut device: T) -> Trainer<T> {
         if let Ok((power_range, resistance_range)) = device.setup().await {
             Trainer {
@@ -41,6 +44,9 @@ impl<T: FitnessDevice + std::fmt::Debug> Trainer<T> {
     }
 
     #[instrument(skip(self, cmd_rx, data_tx))]
+    /// Runs a forever loop -- designed to be executed in a spawned task
+    /// All communication *to* the trainer should happen via the sending half of cmd_rx.
+    /// All communication *from* the trainer should be received via the receiving half of data_tx.
     pub async fn run(
         &mut self,
         mut cmd_rx: tokio::sync::mpsc::UnboundedReceiver<Command>,

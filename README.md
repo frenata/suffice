@@ -50,7 +50,7 @@
 * [x] tokio tracing logs
 * [x] better error handling generally instead of reckless unwraps everywhere
 * [x] github branch protection
-* [ ] docstrings etc.
+* [x] docstrings etc.
 
 ### Bugs
 

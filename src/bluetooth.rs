@@ -14,17 +14,18 @@ use tracing::{Level, event, instrument};
 
 use crate::ftms::{BikeData, FitnessData, FitnessDevice, Range};
 
-pub const RESISTANCE_RANGE: Uuid = uuid!("00002ad6-0000-1000-8000-00805f9b34fb");
-pub const POWER_RANGE: Uuid = uuid!("00002ad8-0000-1000-8000-00805f9b34fb");
-// pub const FEATURES: Uuid = uuid!("00002acc-0000-1000-8000-00805f9b34fb");
+const RESISTANCE_RANGE: Uuid = uuid!("00002ad6-0000-1000-8000-00805f9b34fb");
+const POWER_RANGE: Uuid = uuid!("00002ad8-0000-1000-8000-00805f9b34fb");
+// const FEATURES: Uuid = uuid!("00002acc-0000-1000-8000-00805f9b34fb");
 
-pub const MACHINE_STATUS: Uuid = uuid!("00002ada-0000-1000-8000-00805f9b34fb");
-pub const TRAINING_STATUS: Uuid = uuid!("00002ad3-0000-1000-8000-00805f9b34fb");
+const MACHINE_STATUS: Uuid = uuid!("00002ada-0000-1000-8000-00805f9b34fb");
+const TRAINING_STATUS: Uuid = uuid!("00002ad3-0000-1000-8000-00805f9b34fb");
 
-pub const MACHINE_CONTROL: Uuid = uuid!("00002ad9-0000-1000-8000-00805f9b34fb");
-pub const BIKE_DATA: Uuid = uuid!("00002ad2-0000-1000-8000-00805f9b34fb");
+const MACHINE_CONTROL: Uuid = uuid!("00002ad9-0000-1000-8000-00805f9b34fb");
+const BIKE_DATA: Uuid = uuid!("00002ad2-0000-1000-8000-00805f9b34fb");
 
 #[derive(Debug)]
+/// Implements a FitnessDevice over BT-LE
 pub struct BluetoothDevice {
     peripheral: Peripheral,
     control: Option<Characteristic>,
@@ -42,6 +43,7 @@ impl std::fmt::Display for BluetoothDevice {
 
 impl BluetoothDevice {
     #[instrument]
+    /// Creates a new connection to a BluetoothDevice via device descriptor.
     pub async fn new(target: String) -> Option<BluetoothDevice> {
         let manager = Manager::new().await.unwrap();
         let adapters = manager.adapters().await.ok()?;
