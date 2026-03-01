@@ -1,5 +1,7 @@
 use crate::ftms::BikeData;
-use chrono::{DateTime, Local, TimeZone};
+#[allow(unused_imports)]
+use chrono::TimeZone as _;
+use chrono::{DateTime, Local};
 use rustyfit::{
     Encoder,
     profile::{
@@ -121,21 +123,15 @@ fn get_activity(start: DateTime<Local>) -> mesgdef::Activity {
     activity
 }
 
-fn garmin_epoch_offset() -> u32 {
-    let garmin_anchor = Local::now()
-        .timezone()
-        .with_ymd_and_hms(1989, 12, 31, 0, 0, 0)
-        .unwrap()
-        .timestamp();
-    garmin_anchor as u32
-}
+// The difference in seconds between the FIT epoch (dec 31 1989) and the UNIX epoch (jan 1 1970).
+const FIT_EPOCH_OFFSET: u32 = 631065600;
 
 fn to_fit_datetime(dt: chrono::DateTime<Local>) -> rustyfit::profile::typedef::DateTime {
-    rustyfit::profile::typedef::DateTime(dt.timestamp() as u32 - garmin_epoch_offset())
+    rustyfit::profile::typedef::DateTime(dt.timestamp() as u32 - FIT_EPOCH_OFFSET)
 }
 
 fn to_fit_local_datetime(dt: chrono::DateTime<Local>) -> rustyfit::profile::typedef::LocalDateTime {
-    rustyfit::profile::typedef::LocalDateTime(dt.timestamp() as u32 - garmin_epoch_offset())
+    rustyfit::profile::typedef::LocalDateTime(dt.timestamp() as u32 - FIT_EPOCH_OFFSET)
 }
 
 #[test]
