@@ -63,38 +63,50 @@ impl<T: FitnessDevice + std::fmt::Debug> Trainer<T> {
             }
 
             if let Ok(c) = cmd_rx.try_recv() {
-                match c {
-                    Command::Reset => self.device.reset().await?,
+                let _ = match c {
+                    Command::Reset => {
+                        {
+                            let _ = self.device.reset().await;
+                        };
+                        Ok::<(), Error>(())
+                    }
                     Command::Resist(level) => {
                         if let Some(r) = self.resistance_range
                             && r.contains(level)
                         {
-                            self.device.set_resistance(level).await?
-                        }
+                            let _ = self.device.set_resistance(level).await;
+                        };
+                        Ok(())
                     }
                     Command::Power(level) => {
-                        if let Some(r) = self.power_range
+                        let _: () = if let Some(r) = self.power_range
                             && r.contains(level.try_into().unwrap())
                         {
-                            self.device.set_power(level).await?
-                        }
+                            let _ = self.device.set_power(level).await;
+                        };
+                        Ok(())
                     }
-                    Command::ToggleRecording => match self.is_recording {
-                        true => {
-                            self.is_recording = false;
-                            event!(Level::INFO, "Finished recording");
-                            if let Ok(_res) = record::save_file(self.data.clone()) {
-                                event!(Level::INFO, "FIT file saved");
-                                self.data.clear();
-                            }
+                    Command::ToggleRecording => {
+                        {
+                            let _: () = match self.is_recording {
+                                true => {
+                                    self.is_recording = false;
+                                    event!(Level::INFO, "Finished recording");
+                                    if let Ok(_res) = record::save_file(self.data.clone()) {
+                                        event!(Level::INFO, "FIT file saved");
+                                        self.data.clear();
+                                    }
+                                }
+                                false => {
+                                    self.is_recording = true;
+                                    event!(Level::INFO, "Began recording");
+                                }
+                            };
                         }
-                        false => {
-                            self.is_recording = true;
-                            event!(Level::INFO, "Began recording");
-                        }
-                    },
+                        Ok(())
+                    }
                     Command::Quit => return Ok(()),
-                }
+                };
             }
         }
     }
