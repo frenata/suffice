@@ -27,10 +27,10 @@
 * [ ] implement daemon mode
 * [ ] starship integration
 * [x] faked distance data (what algorithm does other software use?)
-* [ ] proper cli args
-  * [ ] help
-  * [ ] verbose/quiet mode
-  * [ ] connect-test option
+* [x] proper cli args
+  * [x] help
+  * [x] verbose/quiet mode
+  * [x] connect-test option
 * [ ] bling
   * [ ] make gauges for resist/power level
   * [ ] show a basic graph of stats
