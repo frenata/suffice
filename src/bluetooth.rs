@@ -48,12 +48,13 @@ impl BluetoothDevice {
         let manager = Manager::new().await.unwrap();
         let adapters = manager.adapters().await.ok()?;
         let central = adapters.into_iter().nth(0).unwrap();
+        event!(Level::INFO, "Scanning for Devices...");
         central.start_scan(ScanFilter::default()).await.ok()?;
-        time::sleep(Duration::from_secs(2)).await;
+        time::sleep(Duration::from_secs(1)).await;
 
         for p in central.peripherals().await.ok()? {
             if let Some(props) = p.properties().await.ok()? {
-                // eprintln!("{:?}", props.local_name);
+                event!(Level::DEBUG, "Found {:?}", props.local_name);
                 if let Some(name) = props.local_name
                     && name == target
                 {
