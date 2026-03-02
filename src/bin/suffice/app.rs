@@ -1,12 +1,8 @@
-use std::env;
-use std::error::Error;
 use std::io;
 use std::time::Duration;
 
-use average::Mean;
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind};
 use derivative::Derivative;
-use fixed_deque::Deque;
 use ratatui::{
     DefaultTerminal, Frame,
     buffer::Buffer,
@@ -19,61 +15,16 @@ use ratatui::{
 use tokio::sync::{broadcast, mpsc};
 use tracing::{Level, event as ev, instrument};
 
-use suffice::bluetooth::BluetoothDevice;
 use suffice::ftms::BikeData;
-use suffice::trainer::{Command, Trainer};
+use suffice::trainer::Command;
+
+use crate::stats::Stats;
 
 #[derive(Debug, Default)]
 enum Mode {
     Power,
     #[default]
     Resistance,
-}
-
-#[derive(Debug)]
-struct Stats {
-    power: fixed_deque::Deque<u16>,
-    cadence: fixed_deque::Deque<u8>,
-    heart_rate: fixed_deque::Deque<u8>,
-}
-
-impl Stats {
-    fn rolling_power(&self, n: usize) -> f64 {
-        let m: Mean = self.power.iter().rev().take(n).map(|n| *n as f64).collect();
-        m.mean()
-    }
-
-    fn rolling_cadence(&self, n: usize) -> f64 {
-        let m: Mean = self
-            .cadence
-            .iter()
-            .rev()
-            .take(n)
-            .map(|n| *n as f64)
-            .collect();
-        m.mean()
-    }
-
-    fn rolling_heart_rate(&self, n: usize) -> f64 {
-        let m: Mean = self
-            .heart_rate
-            .iter()
-            .rev()
-            .take(n)
-            .map(|n| *n as f64)
-            .collect();
-        m.mean()
-    }
-}
-
-impl Default for Stats {
-    fn default() -> Self {
-        Stats {
-            power: Deque::new(30),
-            cadence: Deque::new(30),
-            heart_rate: Deque::new(30),
-        }
-    }
 }
 
 #[derive(Debug, Derivative)]
@@ -282,41 +233,6 @@ impl Widget for &App {
             .block(block)
             .render(area, buf)
     }
-}
-
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
-    let subscriber = tracing_subscriber::fmt()
-        .compact()
-        .with_writer(std::io::stderr)
-        .finish();
-    tracing::subscriber::set_global_default(subscriber)?;
-
-    let args: Vec<String> = env::args().collect();
-    let target = args[1].clone();
-    let device = BluetoothDevice::new(target.clone()).await;
-    if device.is_none() {
-        return Err(format!("{} not found", target).into());
-    }
-    let device = device.unwrap();
-    let mut trainer = Trainer::<BluetoothDevice>::new(device).await;
-
-    let (cmd_tx, cmd_rx) = mpsc::unbounded_channel::<Command>();
-    let (data_tx, data_rx) = broadcast::channel::<BikeData>(100);
-
-    tokio::spawn(async move {
-        let _ = trainer.run(cmd_rx, data_tx).await;
-    });
-
-    let mut term = ratatui::init();
-    let mut app = App::default();
-    let res = app
-        .run(&mut term, cmd_tx.clone(), data_rx)
-        .await
-    // .inspect_err(|e| tracing::error!("Error in main event loop: {}", e))
-    ;
-    ratatui::restore();
-    Ok(res?)
 }
 
 #[cfg(test)]
