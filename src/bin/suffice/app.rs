@@ -18,13 +18,20 @@ use tracing::{Level, event as ev, instrument};
 use suffice::ftms::BikeData;
 use suffice::trainer::Command;
 
-use crate::stats::Stats;
+use crate::stats::Stat;
 
 #[derive(Debug, Default)]
 enum Mode {
     Power,
     #[default]
     Resistance,
+}
+
+#[derive(Debug, Default)]
+struct Stats {
+    power: Stat,
+    cadence: Stat,
+    heart_rate: Stat,
 }
 
 #[derive(Debug, Derivative)]
@@ -70,13 +77,13 @@ impl App {
     fn handle_events(&mut self) -> io::Result<()> {
         if let Ok(data) = self.from_trainer.as_mut().expect("").try_recv() {
             if let Some(stat) = data.power {
-                self.stats.power.push_back(stat);
+                self.stats.power.add(stat.into());
             }
             if let Some(stat) = data.cadence {
-                self.stats.cadence.push_back(stat);
+                self.stats.cadence.add(stat.into());
             }
             if let Some(stat) = data.heart_rate {
-                self.stats.heart_rate.push_back(stat);
+                self.stats.heart_rate.add(stat.into());
             }
         }
 
@@ -202,9 +209,9 @@ impl Widget for &App {
             .title_bottom(instructions.centered())
             .border_set(border::THICK);
 
-        let power_3s = self.stats.rolling_power(3);
-        let cadence_3s = self.stats.rolling_cadence(3);
-        let heart_3s = self.stats.rolling_heart_rate(3);
+        let power_3s = self.stats.power.rolling(3);
+        let cadence_3s = self.stats.cadence.rolling(3);
+        let heart_3s = self.stats.heart_rate.rolling(3);
 
         let counter = Text::from(vec![
             Line::from(match self.mode {

@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * feature: capability to record fit files
 * bugfix: prevent Trainer loop from exiting without recovering
 * improvement: provide backpressure/dedupe on commands to the trainer so it feels more responsive
+* refactor: split binary crate into logical pieces
 
 ## [0.1.0]
 
