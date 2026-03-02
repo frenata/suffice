@@ -97,8 +97,6 @@ impl App {
                 _ => {}
             };
         } else {
-            // ev!(Level::INFO, "no event happened");
-
             if self.mode_dirty {
                 let _ = self
                     .to_trainer

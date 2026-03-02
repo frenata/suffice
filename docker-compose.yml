@@ -9,11 +9,6 @@ services:
     environment:
       env: docker
       LD_LIBRARY_PATH: /app/target/debug/deps
-      # WAYLAND_DISPLAY: wayland-0
-      # XDG_RUNTIME_DIR: /run/user/1000
-    # ipc: host
-    # devices:
-    #   - /dev/dri:/dev/dri
 
 volumes:
   cargo-cache:

@@ -99,11 +99,7 @@ async fn run(device: BluetoothDevice) -> Result<(), Box<dyn Error>> {
 
     let mut term = ratatui::init();
     let mut app = App::default();
-    let res = app
-        .run(&mut term, cmd_tx.clone(), data_rx)
-        .await
-    // .inspect_err(|e| tracing::error!("Error in main event loop: {}", e))
-    ;
+    let res = app.run(&mut term, cmd_tx.clone(), data_rx).await;
     ratatui::restore();
     Ok(res?)
 }

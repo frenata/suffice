@@ -165,23 +165,19 @@ mod tests {
     #[tokio::test]
     async fn test_trainer_record() {
         let mut mock_device = MockFitnessDevice::new();
-        mock_device
-            .expect_notifications()
-            // .returning(|| Box::pin(ready(Err(Error::other("foo")))));
-            //
-            .returning(|| {
-                let stream: Pin<Box<dyn Stream<Item = BikeData> + Send>> =
-                    Box::pin(tokio_stream::iter(vec![BikeData {
-                        power: Some(100),
-                        cadence: Some(80),
-                        speed: Some(20),
-                        resistance: Some(5),
-                        heart_rate: Some(80),
-                        ..BikeData::default()
-                    }]));
+        mock_device.expect_notifications().returning(|| {
+            let stream: Pin<Box<dyn Stream<Item = BikeData> + Send>> =
+                Box::pin(tokio_stream::iter(vec![BikeData {
+                    power: Some(100),
+                    cadence: Some(80),
+                    speed: Some(20),
+                    resistance: Some(5),
+                    heart_rate: Some(80),
+                    ..BikeData::default()
+                }]));
 
-                Box::pin(ready(Ok(stream)))
-            });
+            Box::pin(ready(Ok(stream)))
+        });
 
         let mut trainer = Trainer::<MockFitnessDevice> {
             device: mock_device,
