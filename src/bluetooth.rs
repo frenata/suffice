@@ -16,7 +16,6 @@ use crate::ftms::{BikeData, FitnessData, FitnessDevice, Range};
 
 const RESISTANCE_RANGE: Uuid = uuid!("00002ad6-0000-1000-8000-00805f9b34fb");
 const POWER_RANGE: Uuid = uuid!("00002ad8-0000-1000-8000-00805f9b34fb");
-// const FEATURES: Uuid = uuid!("00002acc-0000-1000-8000-00805f9b34fb");
 
 const MACHINE_STATUS: Uuid = uuid!("00002ada-0000-1000-8000-00805f9b34fb");
 const TRAINING_STATUS: Uuid = uuid!("00002ad3-0000-1000-8000-00805f9b34fb");
@@ -241,7 +240,7 @@ impl FitnessData for ValueNotification {
     fn parse(v: ValueNotification) -> BikeData {
         let mut data = BikeData::default();
         // NOTE: via spec: 4.9.1.1
-        // Important: this is simplified and not generically correct
+        // FIXME: Important: this is simplified and not generically correct
         // the order of data is tied to the flags available
         // so if other flags (not checked for here) are present
         // the mapping of bytes in the payload to fields will be wrong
@@ -252,7 +251,6 @@ impl FitnessData for ValueNotification {
             data.speed = Some(u16::from_le_bytes(v.value[2..4].try_into().unwrap()));
         }
         if v.value[0] & 0b00000100 != 0 {
-            // cadence
             data.cadence = Some(
                 (u16::from_le_bytes(v.value[4..6].try_into().unwrap()) / 2)
                     .try_into()
@@ -260,7 +258,6 @@ impl FitnessData for ValueNotification {
             );
         }
         if v.value[0] & 0b00100000 != 0 {
-            // resistance
             // TODO: the BLE spec says this is i16, but we need to convert to u8 -- what's the best way?
             data.resistance = Some(
                 u16::from_le_bytes(v.value[6..8].try_into().unwrap())
@@ -269,12 +266,10 @@ impl FitnessData for ValueNotification {
             );
         }
         if v.value[0] & 0b01000000 != 0 {
-            // power
             // TODO: the BLE spec says this is i16, but we need to convert to u16 -- what's the best way?
             data.power = Some(u16::from_le_bytes(v.value[8..10].try_into().unwrap()));
         }
         if v.value[1] & 0b00000010 != 0 {
-            // TODO heartrate
             data.heart_rate = Some(u8::from_le_bytes(v.value[10..11].try_into().unwrap()));
         }
         data

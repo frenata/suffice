@@ -66,7 +66,7 @@ impl Range {
     }
     /// Returns true if n is valid within the range.
     pub fn contains(&self, n: u16) -> bool {
-        // TODO check inc
+        // FIXME: check inc
         n >= self.min && n <= self.max
     }
 }

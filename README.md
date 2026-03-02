@@ -25,7 +25,7 @@
   * [x] and display it usefully
 * [x] make sure ERG and Level mode seem to work
 * [x] record sessions in FIT files
-* [ ] add screenshots/screencasts
+* [x] add screenshots/screencasts
 * [ ] implement daemon mode
 * [ ] starship integration
 * [x] faked distance data (what algorithm does other software use?)

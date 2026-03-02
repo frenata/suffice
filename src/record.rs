@@ -22,6 +22,8 @@ use tracing::{Level, event, instrument};
 pub(crate) fn save_file(data: Vec<BikeData>) -> Result<(), Error> {
     // NOTE: adapted from the example in the documentation
     // https://crates.io/crates/rustyfit#encode-using-mesgdef-module
+
+    // FIXME: make this a random/timestamped name and/or with a name specified by user
     let fout_name = "output.fit";
     let fout = File::create(fout_name)?;
     let mut bw = BufWriter::new(fout);
@@ -45,8 +47,11 @@ fn to_fit(data: Vec<BikeData>) -> FIT {
     let total_dist: u32 = data.iter().map(|bd| bd.distance.unwrap_or_default()).sum();
     let mut messages: Vec<Message> = data.iter().map(to_message).collect();
     messages.insert(0, Message::from(get_file_id(start)));
-    messages.push(Message::from(get_session(start, end, total_dist)));
     messages.push(Message::from(get_activity(start)));
+    messages.push(Message::from(get_session(start, end, total_dist)));
+    // TODO: Practically speaking this seems sufficient for Strava, intervals.icu, etc.
+    // but isn't "best practice" per Garmin.
+    // Should add extra messages: Lap, TimerStarted / Stopped, etc.
 
     FIT {
         messages,
@@ -68,6 +73,7 @@ fn test_to_fit() {
 }
 
 fn to_message(data: &BikeData) -> Message {
+    // TODO: consider using developer data fields to add extra info
     let mut rec = mesgdef::Record::new();
 
     if let Some(cadence) = data.cadence {
