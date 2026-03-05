@@ -2,7 +2,7 @@
 
 *Suffice* is a terminal-based tool for controlling a cycling trainer, so you can pound pedals while peddling code.
 
-<img width="866" height="304" alt="suffice-start" src="https://github.com/user-attachments/assets/01307fd0-bf40-4e9d-9925-5928c4c889a7" />
+<img width="863" height="301" alt="suffice-data" src="https://github.com/user-attachments/assets/38c073e6-bddc-4336-8c8a-5c17c01d036f" />
 
 ## Goals
 
