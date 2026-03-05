@@ -8,7 +8,7 @@ use suffice::trainer::{Command, Trainer};
 
 mod app;
 mod stats;
-use app::App;
+use app::{App, Style};
 
 use clap::{Args, Parser, Subcommand};
 use tracing::Level;
@@ -35,6 +35,10 @@ enum Commands {
     Connect {
         /// The bluetooth device to connect to.
         target: String,
+
+        /// Only show error messages
+        #[clap(long, short, default_value_t = Style::Simple)]
+        style: Style,
     },
 }
 
@@ -77,17 +81,17 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 Ok(())
             }
         }
-        Commands::Connect { target } => {
+        Commands::Connect { target, style } => {
             let device = BluetoothDevice::new(target.clone()).await;
             if device.is_none() {
                 return Err(format!("{} not found", target).into());
             }
-            return run(device.unwrap()).await;
+            return run(device.unwrap(), style).await;
         }
     }
 }
 
-async fn run(device: BluetoothDevice) -> Result<(), Box<dyn Error>> {
+async fn run(device: BluetoothDevice, style: Style) -> Result<(), Box<dyn Error>> {
     let mut trainer = Trainer::<BluetoothDevice>::new(device).await;
 
     let (cmd_tx, cmd_rx) = mpsc::unbounded_channel::<Command>();
@@ -99,6 +103,7 @@ async fn run(device: BluetoothDevice) -> Result<(), Box<dyn Error>> {
 
     let mut term = ratatui::init();
     let mut app = App::default();
+    app.set_style(style);
     let res = app.run(&mut term, cmd_tx.clone(), data_rx).await;
     ratatui::restore();
     Ok(res?)

@@ -1,19 +1,22 @@
+use std::fmt::Display;
 use std::io;
 use std::time::Duration;
 
+use clap::ValueEnum;
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind};
 use derivative::Derivative;
 use ratatui::{
     DefaultTerminal, Frame,
     buffer::Buffer,
-    layout::Rect,
+    layout::{Constraint, Direction, Layout, Rect},
     style::Stylize,
     symbols::border,
     text::{Line, Text},
-    widgets::{Block, Paragraph, Widget},
+    widgets::{Block, Gauge, Paragraph, Widget},
 };
 use tokio::sync::{broadcast, mpsc};
 use tracing::{Level, event as ev, instrument};
+use tui_slider::{Slider, SliderOrientation, SliderState};
 
 use suffice::ftms::BikeData;
 use suffice::trainer::Command;
@@ -25,6 +28,22 @@ enum Mode {
     Power,
     #[default]
     Resistance,
+}
+
+#[derive(Debug, Default, Clone, ValueEnum, Copy, PartialEq, Eq)]
+pub enum Style {
+    #[default]
+    Simple,
+    Fancy,
+}
+
+impl Display for Style {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.to_possible_value()
+            .expect("no values are skipped")
+            .get_name()
+            .fmt(f)
+    }
 }
 
 #[derive(Debug, Default)]
@@ -49,9 +68,14 @@ pub struct App {
     to_trainer: Option<mpsc::UnboundedSender<Command>>,
     from_trainer: Option<broadcast::Receiver<BikeData>>,
     stats: Stats,
+    style: Style,
 }
 
 impl App {
+    pub fn set_style(&mut self, s: Style) {
+        self.style = s;
+    }
+
     /// The run loop for ratatui
     pub async fn run(
         &mut self,
@@ -233,10 +257,37 @@ impl Widget for &App {
             ]),
         ]);
 
+        let outer_layout = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints(vec![
+                Constraint::Percentage(10),
+                Constraint::Percentage(60),
+                Constraint::Percentage(30),
+            ])
+            .split(area);
+
+        let inner_layout = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints(vec![
+                Constraint::Percentage(10),
+                Constraint::Percentage(80),
+                Constraint::Percentage(10),
+            ])
+            .split(outer_layout[1]);
+
+        if self.style == Style::Fancy {
+            Slider::new(self.resistance.into(), 1., 100.)
+                .orientation(SliderOrientation::Vertical)
+                .label("Resistance")
+                .show_value(true)
+                .render(inner_layout[0], buf);
+        }
+
         Paragraph::new(counter)
             .centered()
-            .block(block)
-            .render(area, buf)
+            .render(inner_layout[1], buf);
+
+        Paragraph::new("").centered().block(block).render(area, buf);
     }
 }
 

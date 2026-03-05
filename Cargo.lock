@@ -1909,6 +1909,7 @@ dependencies = [
  "tokio-stream",
  "tracing",
  "tracing-subscriber",
+ "tui-slider",
  "uuid",
 ]
 
@@ -2181,6 +2182,17 @@ dependencies = [
  "thread_local",
  "tracing-core",
  "tracing-log",
+]
+
+[[package]]
+name = "tui-slider"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5e04faa93d6fabf05b6a27b46647ac72fe536f8827247bb3253b5a978b8026c2"
+dependencies = [
+ "crossterm",
+ "ratatui",
+ "unicode-width",
 ]
 
 [[package]]
