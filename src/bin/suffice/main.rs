@@ -3,7 +3,7 @@ use std::error::Error;
 use tokio::sync::{broadcast, mpsc};
 
 use suffice::bluetooth::BluetoothDevice;
-use suffice::ftms::BikeData;
+use suffice::ftms::{BikeData, FitnessDevice, SampleDevice};
 use suffice::trainer::{Command, Trainer};
 
 mod app;
@@ -31,6 +31,8 @@ enum Commands {
         /// The bluetooth device to connect to.
         target: String,
     },
+    /// Connect to a fake device that generates sample data
+    Sample {},
     /// Connect a train on this device.
     Connect {
         /// The bluetooth device to connect to.
@@ -84,11 +86,17 @@ async fn main() -> Result<(), Box<dyn Error>> {
             }
             return run(device.unwrap()).await;
         }
+        Commands::Sample {} => {
+            let device = SampleDevice::default();
+            return run(device).await;
+        }
     }
 }
 
-async fn run(device: BluetoothDevice) -> Result<(), Box<dyn Error>> {
-    let mut trainer = Trainer::<BluetoothDevice>::new(device).await;
+async fn run<T: FitnessDevice + std::marker::Send + 'static>(
+    device: T,
+) -> Result<(), Box<dyn Error>> {
+    let mut trainer = Trainer::<T>::new(device).await;
 
     let (cmd_tx, cmd_rx) = mpsc::unbounded_channel::<Command>();
     let (data_tx, data_rx) = broadcast::channel::<BikeData>(100);
