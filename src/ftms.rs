@@ -1,8 +1,10 @@
 use std::io::Error;
 use std::pin::Pin;
 
+use async_stream::stream;
 use chrono::{DateTime, Local};
 use derivative::Derivative;
+use rand;
 use tokio_stream::Stream;
 
 #[cfg(test)]
@@ -86,7 +88,7 @@ fn n_in_range() {
 
 #[cfg_attr(test, automock)]
 /// A FitnessDevice represents the underlying connection to the hardware.
-pub trait FitnessDevice {
+pub trait FitnessDevice: std::fmt::Debug {
     fn setup(
         &mut self,
     ) -> impl std::future::Future<
@@ -103,4 +105,69 @@ pub trait FitnessDevice {
         &self,
         level: u16,
     ) -> impl std::future::Future<Output = Result<(), Error>> + Send;
+}
+
+#[derive(Debug, Default)]
+pub struct SampleDevice {}
+
+impl FitnessDevice for SampleDevice {
+    fn setup(
+        &mut self,
+    ) -> impl std::future::Future<
+        Output = Result<(Option<crate::ftms::Range>, Option<crate::ftms::Range>), Error>,
+    > + Send {
+        std::future::ready(Ok((Some(Range::new(1, 1000)), Some(Range::new(1, 100)))))
+    }
+
+    fn notifications(
+        &self,
+    ) -> impl std::future::Future<
+        Output = Result<Pin<Box<dyn Stream<Item = BikeData> + Send>>, Error>,
+    > + Send {
+        let stream = stream! {
+        loop {
+            let data = BikeData{
+                power: Some(rand::random_range(80..350)),
+                cadence: Some(rand::random_range(50..110)),
+                heart_rate: Some(rand::random_range(80..180)),
+                ..Default::default()
+            };
+            tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+            yield data;
+        }};
+
+        let boxx = Box::new(stream);
+        let res: Result<Pin<Box<dyn Stream<Item = BikeData> + Send>>, Error> =
+            Ok(Box::into_pin(boxx));
+
+        std::future::ready(res)
+    }
+
+    fn reset(&self) -> impl std::future::Future<Output = Result<(), Error>> + Send {
+        std::future::ready(Ok(()))
+    }
+
+    fn set_power(
+        &self,
+        _level: i16,
+    ) -> impl std::future::Future<Output = Result<(), Error>> + Send {
+        std::future::ready(Ok(()))
+    }
+
+    fn set_resistance(
+        &self,
+        _level: u16,
+    ) -> impl std::future::Future<Output = Result<(), Error>> + Send {
+        std::future::ready(Ok(()))
+    }
+}
+
+#[tokio::test]
+async fn test_sample_never_fails() {
+    let mut sample = SampleDevice::default();
+    assert!(sample.set_power(999).await.is_ok());
+    assert!(sample.set_resistance(99).await.is_ok());
+    assert!(sample.reset().await.is_ok());
+    assert!(sample.setup().await.is_ok());
+    assert!(sample.notifications().await.is_ok());
 }
