@@ -49,7 +49,7 @@ impl BluetoothDevice {
         let central = adapters.into_iter().nth(0).unwrap();
         event!(Level::INFO, "Scanning for Devices...");
         central.start_scan(ScanFilter::default()).await.ok()?;
-        time::sleep(Duration::from_secs(1)).await;
+        time::sleep(Duration::from_secs(2)).await;
 
         for p in central.peripherals().await.ok()? {
             if let Some(props) = p.properties().await.ok()? {
@@ -69,7 +69,7 @@ impl BluetoothDevice {
 }
 
 impl FitnessDevice for BluetoothDevice {
-    #[instrument]
+    #[instrument(skip(self))]
     async fn setup(&mut self) -> Result<(Option<Range>, Option<Range>), Error> {
         let mut power_range = None;
         let mut resistance_range = None;
@@ -95,16 +95,25 @@ impl FitnessDevice for BluetoothDevice {
         }
 
         for c in self.peripheral.characteristics() {
-            if c.uuid == MACHINE_STATUS
-                && let Err(e) = self.peripheral.subscribe(&c).await
-            {
-                return Err(Error::other(e.to_string()));
+            if c.uuid == MACHINE_STATUS {
+                if let Err(e) = self.peripheral.subscribe(&c).await {
+                    return Err(Error::other(e.to_string()));
+                }
+                event!(Level::DEBUG, "Subscribed to machine status.");
             }
 
-            if c.uuid == TRAINING_STATUS
-                && let Err(e) = self.peripheral.subscribe(&c).await
-            {
-                return Err(Error::other(e.to_string()));
+            if c.uuid == TRAINING_STATUS {
+                if let Err(e) = self.peripheral.subscribe(&c).await {
+                    return Err(Error::other(e.to_string()));
+                }
+                event!(Level::DEBUG, "Subscribed to training status.");
+            }
+
+            if c.uuid == BIKE_DATA {
+                if let Err(e) = self.peripheral.subscribe(&c).await {
+                    return Err(Error::other(e.to_string()));
+                }
+                event!(Level::DEBUG, "Subscribed to bike data.");
             }
 
             if c.uuid == MACHINE_CONTROL {
@@ -112,12 +121,10 @@ impl FitnessDevice for BluetoothDevice {
                     return Err(Error::other(e.to_string()));
                 }
                 self.control = Some(c);
-            } else if c.uuid == BIKE_DATA
-                && let Err(e) = self.peripheral.subscribe(&c).await
-            {
-                return Err(Error::other(e.to_string()));
+                event!(Level::DEBUG, "Subscribed to machine control.");
             }
         }
+
         event!(Level::INFO, "Device config complete");
         Ok((power_range, resistance_range))
     }
