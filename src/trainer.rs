@@ -1,6 +1,7 @@
 use fixed_deque::Deque;
 use std::io::Error;
 use std::time::Duration;
+use tokio::time::timeout;
 use tokio_stream::StreamExt;
 use tracing::{Level, event, instrument};
 
@@ -10,6 +11,7 @@ use crate::{
 };
 
 /// Send `Commands` to interact with a running trainer's loop.
+#[derive(Debug)]
 pub enum Command {
     Reset,
     Resist(u16),
@@ -82,27 +84,33 @@ impl<T: FitnessDevice + std::fmt::Debug> Trainer<T> {
             }
 
             if let Ok(c) = cmd_rx.try_recv() {
+                event!(Level::DEBUG, "handling command {:?}", c);
                 let _ = match c {
                     Command::Reset => {
-                        {
-                            let _ = self.device.reset().await;
-                        };
+                        if let Err(e) = timeout(Duration::from_secs(1), self.device.reset()).await {
+                            event!(Level::ERROR, "reset error {:?}", e);
+                        }
                         Ok::<(), Error>(())
                     }
                     Command::Resist(level) => {
                         if let Some(r) = self.resistance_range
                             && r.contains(level)
+                            && let Err(e) =
+                                timeout(Duration::from_secs(1), self.device.set_resistance(level))
+                                    .await
                         {
-                            let _ = self.device.set_resistance(level).await;
-                        };
+                            event!(Level::ERROR, "set resist error {:?}", e);
+                        }
                         Ok(())
                     }
                     Command::Power(level) => {
-                        let _: () = if let Some(r) = self.power_range
+                        if let Some(r) = self.power_range
                             && r.contains(level.try_into().unwrap())
+                            && let Err(e) =
+                                timeout(Duration::from_secs(1), self.device.set_power(level)).await
                         {
-                            let _ = self.device.set_power(level).await;
-                        };
+                            event!(Level::ERROR, "set power error {:?}", e);
+                        }
                         Ok(())
                     }
                     Command::ToggleRecording => {
