@@ -62,15 +62,18 @@ impl<T: FitnessDevice + std::fmt::Debug> Trainer<T> {
         loop {
             if let Ok(Some(mut data)) = notify.try_next().await {
                 event!(Level::DEBUG, "received bike data {:?}", data);
+                if !self.data.is_empty()
+                    && let Some(speed) = data.speed
+                {
+                    let last = self.data[self.data.len() - 1];
+                    let dt = (data.time - last.time).as_seconds_f32();
+                    let dist = (dt * (speed / 360) as f32) as u32;
+                    data.distance = Some(dist);
+                }
                 if self.is_recording {
-                    if !self.data.is_empty()
-                        && let Some(speed) = data.speed
-                    {
-                        let last = self.data[self.data.len() - 1];
-                        let dt = (data.time - last.time).as_seconds_f32();
-                        let dist = (dt * (speed / 360) as f32) as u32;
-                        data.distance = Some(dist);
-                    }
+                    self.data.push(data);
+                } else {
+                    // self.data.pop();
                     self.data.push(data);
                 }
                 let _ = data_tx.send(data);
@@ -169,9 +172,9 @@ mod tests {
             let stream: Pin<Box<dyn Stream<Item = BikeData> + Send>> =
                 Box::pin(tokio_stream::iter(vec![BikeData {
                     power: Some(100),
-                    cadence: Some(80),
+                    cadence: Some(88),
                     speed: Some(20),
-                    resistance: Some(5),
+                    resistance: Some(4),
                     heart_rate: Some(80),
                     ..BikeData::default()
                 }]));
@@ -238,22 +241,26 @@ mod tests {
             if field.num == mesgdef::Record::RESISTANCE {
                 assert_eq!(field.value.as_u8(), 5)
             }
-
-            // if field.num == mesgdef::Record::DISTANCE {
-            //     assert_eq!(field.value.as_u8(), 5)
-            // }
         }
 
-        // TODO: make this work -- the notification isn't flowing through
-        // let msg = &fit.messages[2];
-        // for field in msg.fields.clone() {
-        //     // if field.num == mesgdef::Record::CADENCE {
-        //     //     assert_eq!(field.value, 78)
-        //     // }
-        // }
+        let msg = &fit.messages[2];
+        for field in msg.fields.clone() {
+            if field.num == mesgdef::Record::CADENCE {
+                assert_eq!(field.value.as_u8(), 88)
+            }
+            if field.num == mesgdef::Record::HEART_RATE {
+                assert_eq!(field.value.as_u8(), 80)
+            }
+            if field.num == mesgdef::Record::RESISTANCE {
+                assert_eq!(field.value.as_u8(), 4)
+            }
+            if field.num == mesgdef::Record::DISTANCE {
+                assert_eq!(field.value.as_u8(), 255)
+            }
+        }
 
         println!("{:?}", msg.fields);
-        assert_eq!(fit.messages.len(), 4);
+        assert_eq!(fit.messages.len(), 5);
         let _ = remove_file("output.fit");
     }
 }
