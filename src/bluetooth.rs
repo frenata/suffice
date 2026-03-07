@@ -236,43 +236,113 @@ impl FitnessDevice for BluetoothDevice {
     }
 }
 
-impl FitnessData for ValueNotification {
-    fn parse(v: ValueNotification) -> BikeData {
-        let mut data = BikeData::default();
-        // NOTE: via spec: 4.9.1.1
-        // FIXME: Important: this is simplified and not generically correct
-        // the order of data is tied to the flags available
-        // so if other flags (not checked for here) are present
-        // the mapping of bytes in the payload to fields will be wrong
+/// Implemented as per FTMS 4.9.1
+/// The best description of the individual fields and their values appears to be
+/// this doc from Huawei: https://developer.huawei.com/consumer/en/doc/hmscore-guides/ibd-0000001051005923
+#[derive(Default, PartialEq, Debug)]
+struct BluetoothIndoorBikeData {
+    instant_speed: Option<u16>,
+    average_speed: Option<u16>,
+    instant_cadence: Option<u16>,
+    average_cadence: Option<u16>,
+    total_distance: Option<u32>,
+    resistance_level: Option<i16>,
+    instant_power: Option<i16>,
+    average_power: Option<i16>,
+    total_energy: Option<u16>,
+    energy_per_hour: Option<u8>,
+    energy_per_minute: Option<u8>,
+    heart_rate: Option<u8>,
+    metabolic_equivalent: Option<u8>,
+    elapsed_time: Option<u16>,
+    remaining_time: Option<u16>,
+}
+
+impl BluetoothIndoorBikeData {
+    fn parse(v: ValueNotification) -> BluetoothIndoorBikeData {
+        let mut data = BluetoothIndoorBikeData {
+            ..Default::default()
+        };
+        let mut pos = 2; // because we implicitly read the first two bytes as the flags.
+
         if (v.value[0] & 0b00000001) == 0 {
             // NOTE: this flag does double duty as both 'more data' (if on)
             // and speed (if off)
-            // TODO: the BLE spec says this is i16, but we need to convert to u16 -- what's the best way?
-            data.speed = Some(u16::from_le_bytes(v.value[2..4].try_into().unwrap()));
+            data.instant_speed = Some(u16::from_le_bytes([v.value[pos], v.value[pos + 1]]));
+            pos += 2;
         }
-        if v.value[0] & 0b00000100 != 0 {
-            data.cadence = Some(
-                (u16::from_le_bytes(v.value[4..6].try_into().unwrap()) / 2)
-                    .try_into()
-                    .unwrap(),
-            );
+        if (v.value[0] & 0b00000010) != 0 {
+            data.average_speed = Some(u16::from_le_bytes([v.value[pos], v.value[pos + 1]]));
+            pos += 2;
         }
-        if v.value[0] & 0b00100000 != 0 {
-            // TODO: the BLE spec says this is i16, but we need to convert to u8 -- what's the best way?
-            data.resistance = Some(
-                u16::from_le_bytes(v.value[6..8].try_into().unwrap())
-                    .try_into()
-                    .unwrap(),
-            );
+        if (v.value[0] & 0b00000100) != 0 {
+            data.instant_cadence = Some(u16::from_le_bytes([v.value[pos], v.value[pos + 1]]));
+            pos += 2;
         }
-        if v.value[0] & 0b01000000 != 0 {
-            // TODO: the BLE spec says this is i16, but we need to convert to u16 -- what's the best way?
-            data.power = Some(u16::from_le_bytes(v.value[8..10].try_into().unwrap()));
+        if (v.value[0] & 0b00001000) != 0 {
+            data.average_cadence = Some(u16::from_le_bytes([v.value[pos], v.value[pos + 1]]));
+            pos += 2;
         }
-        if v.value[1] & 0b00000010 != 0 {
-            data.heart_rate = Some(u8::from_le_bytes(v.value[10..11].try_into().unwrap()));
+        if (v.value[0] & 0b00010000) != 0 {
+            data.total_distance = Some(u32::from_le_bytes([
+                v.value[pos],
+                v.value[pos + 1],
+                v.value[pos + 2],
+                0,
+            ]));
+            pos += 3;
         }
+        if (v.value[0] & 0b00100000) != 0 {
+            data.resistance_level = Some(i16::from_le_bytes([v.value[pos], v.value[pos + 1]]));
+            pos += 2;
+        }
+        if (v.value[0] & 0b01000000) != 0 {
+            println!("{:?} @ {:?} = {:?}", pos, v.value, &v.value[pos..pos + 2]);
+            data.instant_power = Some(i16::from_le_bytes([v.value[pos], v.value[pos + 1]]));
+            pos += 2;
+        }
+        if (v.value[0] & 0b10000000) != 0 {
+            println!("{:?} @ {:?} = {:?}", pos, v.value, &v.value[pos..pos + 2]);
+            data.average_power = Some(i16::from_le_bytes([v.value[pos], v.value[pos + 1]]));
+            pos += 2;
+        }
+        if (v.value[1] & 0b00000001) != 0 {
+            data.total_energy = Some(u16::from_le_bytes([v.value[pos], v.value[pos + 1]]));
+            data.energy_per_hour = Some(v.value[pos + 2]);
+            data.energy_per_minute = Some(v.value[pos + 3]);
+            pos += 4;
+        }
+        if (v.value[1] & 0b00000010) != 0 {
+            data.heart_rate = Some(u8::from_le_bytes([v.value[pos]]));
+            pos += 1;
+        }
+        if (v.value[1] & 0b00000100) != 0 {
+            data.metabolic_equivalent = Some(u8::from_le_bytes([v.value[pos]]));
+            pos += 1;
+        }
+        if (v.value[1] & 0b00001000) != 0 {
+            data.elapsed_time = Some(u16::from_le_bytes([v.value[pos], v.value[pos + 1]]));
+            pos += 2;
+        }
+        if (v.value[1] & 0b00010000) != 0 {
+            data.remaining_time = Some(u16::from_le_bytes([v.value[pos], v.value[pos + 1]]));
+        }
+
         data
+    }
+}
+
+impl FitnessData for ValueNotification {
+    fn parse(v: ValueNotification) -> BikeData {
+        let indoor = BluetoothIndoorBikeData::parse(v);
+        BikeData {
+            power: indoor.instant_power.map(|p| p as u16),
+            cadence: indoor.instant_cadence.map(|c| (c / 2) as u8),
+            resistance: indoor.resistance_level.map(|r| r as u8),
+            heart_rate: indoor.heart_rate,
+            speed: indoor.instant_speed,
+            ..Default::default()
+        }
     }
 }
 
@@ -326,6 +396,44 @@ mod tests {
             heart_rate: Some(55),
             speed: Some(546),
             ..Default::default()
+        };
+
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn all_data_available() {
+        let v: ValueNotification = ValueNotification {
+            uuid: Uuid::new_v4(),
+            // The first *13* bits indicate the remaining data, so the first byte should be at most
+            // 255 and the second at most 31.
+            // *However* the 0th flag bit designates 'more data' when off, so practically
+            // a full set of data should be 254, 31.
+            value: vec![
+                254, 31, // flag bytes
+                // data for first flag byte
+                1, 0, 2, 0, 3, 0, 4, 0, 5, 0, 0, 6, 0, 7, 0, 8, 0,
+                // data for second flag byte
+                9, 0, 10, 11, 12, 13, 14, 0, 15, 0,
+            ],
+        };
+        let actual = BluetoothIndoorBikeData::parse(v);
+        let expected = BluetoothIndoorBikeData {
+            instant_speed: Some(1),
+            average_speed: Some(2),
+            instant_cadence: Some(3),
+            average_cadence: Some(4),
+            total_distance: Some(5),
+            resistance_level: Some(6),
+            instant_power: Some(7),
+            average_power: Some(8),
+            total_energy: Some(9),
+            energy_per_hour: Some(10),
+            energy_per_minute: Some(11),
+            heart_rate: Some(12),
+            metabolic_equivalent: Some(13),
+            elapsed_time: Some(14),
+            remaining_time: Some(15),
         };
 
         assert_eq!(actual, expected);
