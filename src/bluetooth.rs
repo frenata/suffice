@@ -297,12 +297,10 @@ impl BluetoothIndoorBikeData {
             pos += 2;
         }
         if (v.value[0] & 0b01000000) != 0 {
-            println!("{:?} @ {:?} = {:?}", pos, v.value, &v.value[pos..pos + 2]);
             data.instant_power = Some(i16::from_le_bytes([v.value[pos], v.value[pos + 1]]));
             pos += 2;
         }
         if (v.value[0] & 0b10000000) != 0 {
-            println!("{:?} @ {:?} = {:?}", pos, v.value, &v.value[pos..pos + 2]);
             data.average_power = Some(i16::from_le_bytes([v.value[pos], v.value[pos + 1]]));
             pos += 2;
         }

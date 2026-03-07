@@ -23,9 +23,9 @@ pub struct BikeData {
     pub resistance: Option<u8>,
     /// Heart Rate is measured in beats-per-minute (bpm).
     pub heart_rate: Option<u8>,
-    /// Speed is meausred in millimeters per second.
+    /// Speed is meausred in 10 meters / hour.
     pub speed: Option<u16>,
-    /// Distance is measured in centimeters.
+    /// Distance is measured in meters.
     pub distance: Option<u32>,
     #[derivative(PartialEq = "ignore")]
     #[derivative(Default(value = "Local::now()"))]
@@ -126,10 +126,15 @@ impl FitnessDevice for SampleDevice {
     > + Send {
         let stream = stream! {
         loop {
+            let watts: u16 = rand::random_range(80..350);
+            let cadence = rand::random_range(50..110);
+            let heart_rate = rand::random_range(60..120);
+            let speed = rand::random_range(3000..5000);
             let data = BikeData{
-                power: Some(rand::random_range(80..350)),
-                cadence: Some(rand::random_range(50..110)),
-                heart_rate: Some(rand::random_range(80..180)),
+                power: Some(watts),
+                cadence: Some(cadence),
+                heart_rate: Some(heart_rate),
+                speed: Some(speed as u16),
                 ..Default::default()
             };
             tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;

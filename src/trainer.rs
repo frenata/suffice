@@ -62,18 +62,18 @@ impl<T: FitnessDevice + std::fmt::Debug> Trainer<T> {
         loop {
             if let Ok(Some(mut data)) = notify.try_next().await {
                 event!(Level::DEBUG, "received bike data {:?}", data);
-                let _ = data_tx.send(data);
                 if self.is_recording {
                     if !self.data.is_empty()
                         && let Some(speed) = data.speed
                     {
                         let last = self.data[self.data.len() - 1];
-                        let dt = data.time - last.time;
-                        let dist = (dt.as_seconds_f32() * (speed as f32 / 10.0)) as u32;
+                        let dt = (data.time - last.time).as_seconds_f32();
+                        let dist = (dt * (speed / 360) as f32) as u32;
                         data.distance = Some(dist);
                     }
                     self.data.push(data);
                 }
+                let _ = data_tx.send(data);
             }
 
             if let Ok(c) = cmd_rx.try_recv() {
@@ -238,6 +238,10 @@ mod tests {
             if field.num == mesgdef::Record::RESISTANCE {
                 assert_eq!(field.value.as_u8(), 5)
             }
+
+            // if field.num == mesgdef::Record::DISTANCE {
+            //     assert_eq!(field.value.as_u8(), 5)
+            // }
         }
 
         // TODO: make this work -- the notification isn't flowing through
