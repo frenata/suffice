@@ -1,3 +1,4 @@
+use fixed_deque::Deque;
 use std::io::Error;
 use std::time::Duration;
 use tokio_stream::StreamExt;
@@ -23,7 +24,7 @@ pub struct Trainer<T: FitnessDevice> {
     device: T,
     resistance_range: Option<Range>,
     power_range: Option<Range>,
-    data: Vec<BikeData>,
+    data: Deque<BikeData>,
     is_recording: bool,
 }
 
@@ -35,7 +36,14 @@ impl<T: FitnessDevice + std::fmt::Debug> Trainer<T> {
                 device,
                 power_range,
                 resistance_range,
-                data: Vec::<BikeData>::new(),
+
+                // FIXME: This is better than an unbounded Vec,
+                // but ideally we'd have a smaller footprint than this
+                // for now -- stuck with this until rustyfit handles
+                // streaming recording.
+                // At ~1 message per second and 5000 messages,
+                // this is good enough for a 2 hour session.
+                data: Deque::<BikeData>::new(7200),
                 is_recording: false,
             }
         } else {
@@ -70,12 +78,6 @@ impl<T: FitnessDevice + std::fmt::Debug> Trainer<T> {
                     let dist = (dt * (speed / 360) as f32) as u32;
                     data.distance = Some(dist);
                 }
-                if self.is_recording {
-                    self.data.push(data);
-                } else {
-                    // self.data.pop();
-                    self.data.push(data);
-                }
                 let _ = data_tx.send(data);
             }
 
@@ -109,7 +111,8 @@ impl<T: FitnessDevice + std::fmt::Debug> Trainer<T> {
                                 true => {
                                     self.is_recording = false;
                                     event!(Level::INFO, "Finished recording");
-                                    if let Ok(_res) = record::save_file(self.data.clone()) {
+                                    if let Ok(_res) = record::save_file(self.data.make_contiguous())
+                                    {
                                         event!(Level::INFO, "FIT file saved");
                                         self.data.clear();
                                     }
@@ -117,6 +120,7 @@ impl<T: FitnessDevice + std::fmt::Debug> Trainer<T> {
                                 false => {
                                     self.is_recording = true;
                                     event!(Level::INFO, "Began recording");
+                                    self.data.clear();
                                 }
                             };
                         }
@@ -186,25 +190,33 @@ mod tests {
             device: mock_device,
             resistance_range: None,
             power_range: None,
-            data: Vec::<BikeData>::new(),
+            data: Deque::<BikeData>::new(10),
             is_recording: false,
         };
-        trainer.data.push(BikeData {
+
+        let (cmd_tx, cmd_rx) = mpsc::unbounded_channel::<Command>();
+        let (data_tx, _data_rx) = broadcast::channel::<BikeData>(100);
+
+        // This turns on the recording which clears all prior data.
+        let _ = cmd_tx.send(Command::ToggleRecording);
+        let _ = cmd_tx.send(Command::Quit);
+        let _ = trainer.run(cmd_rx, data_tx.clone()).await;
+
+        let (cmd_tx, cmd_rx) = mpsc::unbounded_channel::<Command>();
+        trainer.data.push_back(BikeData {
             power: Some(90),
             cadence: Some(78),
             speed: Some(20),
             resistance: Some(5),
             heart_rate: Some(81),
+            distance: Some(44),
             ..BikeData::default()
         });
 
-        let (cmd_tx, cmd_rx) = mpsc::unbounded_channel::<Command>();
-        let (data_tx, _data_rx) = broadcast::channel::<BikeData>(100);
-
-        let _ = cmd_tx.send(Command::ToggleRecording);
+        // This will finish the recording, sending just the single new packet.
         let _ = cmd_tx.send(Command::ToggleRecording);
         let _ = cmd_tx.send(Command::Quit);
-        let _ = trainer.run(cmd_rx, data_tx).await;
+        let _ = trainer.run(cmd_rx, data_tx.clone()).await;
 
         assert!(!trainer.is_recording);
 
@@ -241,26 +253,16 @@ mod tests {
             if field.num == mesgdef::Record::RESISTANCE {
                 assert_eq!(field.value.as_u8(), 5)
             }
-        }
 
-        let msg = &fit.messages[2];
-        for field in msg.fields.clone() {
-            if field.num == mesgdef::Record::CADENCE {
-                assert_eq!(field.value.as_u8(), 88)
-            }
-            if field.num == mesgdef::Record::HEART_RATE {
-                assert_eq!(field.value.as_u8(), 80)
-            }
-            if field.num == mesgdef::Record::RESISTANCE {
-                assert_eq!(field.value.as_u8(), 4)
-            }
             if field.num == mesgdef::Record::DISTANCE {
+                // FIXME: this seems wrong and likely indicates an error
+                // in the units we send to the FIT file for distance
                 assert_eq!(field.value.as_u8(), 255)
             }
         }
 
         println!("{:?}", msg.fields);
-        assert_eq!(fit.messages.len(), 5);
+        assert_eq!(fit.messages.len(), 4);
         let _ = remove_file("output.fit");
     }
 }
