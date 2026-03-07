@@ -327,6 +327,7 @@ mod tests {
             heart_rate: Some(93),
             resistance: None,
             speed: Some(10),
+            distance: Some(14),
             ..Default::default()
         });
 
@@ -336,6 +337,7 @@ mod tests {
             heart_rate: Some(90),
             resistance: None,
             speed: Some(3000),
+            distance: Some(19),
             ..Default::default()
         });
 
@@ -345,6 +347,7 @@ mod tests {
             heart_rate: Some(91),
             resistance: None,
             speed: Some(3205),
+            distance: Some(11),
             ..Default::default()
         });
 
@@ -361,7 +364,7 @@ mod tests {
             "┃                3s Cadence: 51.00               ┃",
             "┃              3s Heart Rate: 91.33              ┃",
             "┃                 3s Speed: 20.72                ┃",
-            "┃               Distance: 0.000 km               ┃",
+            "┃               Distance: 0.044 km               ┃",
             "┃                                                ┃",
             "┗━━ More <Up> Less <Down> Record <R> Quit <Q> ━━━┛",
         ]);
