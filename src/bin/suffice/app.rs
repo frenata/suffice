@@ -32,6 +32,8 @@ struct Stats {
     power: Stat,
     cadence: Stat,
     heart_rate: Stat,
+    speed: Stat,
+    distance: Stat,
 }
 
 #[derive(Debug, Derivative)]
@@ -84,6 +86,12 @@ impl App {
             }
             if let Some(stat) = data.heart_rate {
                 self.stats.heart_rate.add(stat.into());
+            }
+            if let Some(stat) = data.speed {
+                self.stats.speed.add(stat.into());
+            }
+            if let Some(stat) = data.distance {
+                self.stats.distance.add(stat);
             }
         }
 
@@ -210,6 +218,8 @@ impl Widget for &App {
         let power_3s = self.stats.power.rolling(3);
         let cadence_3s = self.stats.cadence.rolling(3);
         let heart_3s = self.stats.heart_rate.rolling(3);
+        let speed_3s = self.stats.speed.rolling(3);
+        let dist_total = self.stats.distance.total();
 
         let counter = Text::from(vec![
             Line::from(match self.mode {
@@ -230,6 +240,14 @@ impl Widget for &App {
             Line::from(vec![
                 "3s Heart Rate: ".into(),
                 format!("{:.2}", heart_3s).yellow(),
+            ]),
+            Line::from(vec![
+                "3s Speed: ".into(),
+                format!("{:.2}", speed_3s / 100.).yellow(),
+            ]),
+            Line::from(vec![
+                "Distance: ".into(),
+                format!("{:.3} km", dist_total as f32 / 1000.).yellow(),
             ]),
         ]);
 
@@ -266,8 +284,8 @@ mod tests {
             "┃                  3s Power: NaN                 ┃",
             "┃                 3s Cadence: NaN                ┃",
             "┃               3s Heart Rate: NaN               ┃",
-            "┃                                                ┃",
-            "┃                                                ┃",
+            "┃                  3s Speed: NaN                 ┃",
+            "┃               Distance: 0.000 km               ┃",
             "┃                                                ┃",
             "┗━━ More <Up> Less <Down> Record <R> Quit <Q> ━━━┛",
         ]);
@@ -280,6 +298,8 @@ mod tests {
         expected.set_style(Rect::new(29, 3, 3, 1), counter_style);
         expected.set_style(Rect::new(30, 4, 3, 1), counter_style);
         expected.set_style(Rect::new(31, 5, 3, 1), counter_style);
+        expected.set_style(Rect::new(29, 6, 3, 1), counter_style);
+        expected.set_style(Rect::new(26, 7, 8, 1), counter_style);
 
         expected.set_style(Rect::new(9, 9, 4, 1), key_style);
         expected.set_style(Rect::new(19, 9, 6, 1), key_style);
@@ -315,7 +335,7 @@ mod tests {
             cadence: Some(52),
             heart_rate: Some(90),
             resistance: None,
-            speed: Some(10),
+            speed: Some(3000),
             ..Default::default()
         });
 
@@ -324,7 +344,7 @@ mod tests {
             cadence: Some(51),
             heart_rate: Some(91),
             resistance: None,
-            speed: Some(10),
+            speed: Some(3205),
             ..Default::default()
         });
 
@@ -340,8 +360,8 @@ mod tests {
             "┃                3s Power: 115.00                ┃",
             "┃                3s Cadence: 51.00               ┃",
             "┃              3s Heart Rate: 91.33              ┃",
-            "┃                                                ┃",
-            "┃                                                ┃",
+            "┃                 3s Speed: 20.72                ┃",
+            "┃               Distance: 0.000 km               ┃",
             "┃                                                ┃",
             "┗━━ More <Up> Less <Down> Record <R> Quit <Q> ━━━┛",
         ]);
@@ -354,6 +374,8 @@ mod tests {
         expected.set_style(Rect::new(27, 3, 6, 1), counter_style);
         expected.set_style(Rect::new(29, 4, 5, 1), counter_style);
         expected.set_style(Rect::new(30, 5, 5, 1), counter_style);
+        expected.set_style(Rect::new(28, 6, 5, 1), counter_style);
+        expected.set_style(Rect::new(26, 7, 8, 1), counter_style);
 
         expected.set_style(Rect::new(9, 9, 4, 1), key_style);
         expected.set_style(Rect::new(19, 9, 6, 1), key_style);

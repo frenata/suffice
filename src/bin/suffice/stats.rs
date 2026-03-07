@@ -7,6 +7,7 @@ use fixed_deque::Deque;
 #[derive(Debug)]
 pub(crate) struct Stat {
     values: fixed_deque::Deque<u32>,
+    total: u64,
 }
 
 impl Stat {
@@ -15,8 +16,13 @@ impl Stat {
         m.mean()
     }
 
+    pub(crate) fn total(&self) -> u64 {
+        self.total
+    }
+
     pub(crate) fn add(&mut self, value: u32) {
         self.values.push_front(value);
+        self.total += value as u64;
     }
 }
 
@@ -24,6 +30,7 @@ impl Default for Stat {
     fn default() -> Self {
         Stat {
             values: Deque::new(30),
+            total: 0,
         }
     }
 }
@@ -42,4 +49,5 @@ fn test_rolling() {
     assert_eq!(stat.rolling(3).round(), 2.0);
     assert_eq!(stat.rolling(4), 4.0);
     assert_eq!(stat.rolling(5), 21.2);
+    assert_eq!(stat.total(), 9106)
 }
