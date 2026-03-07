@@ -147,7 +147,7 @@ mod tests {
     use std::future::ready;
 
     use super::*;
-    use crate::ftms::MockFitnessDevice;
+    use crate::{config::Config, ftms::MockFitnessDevice};
     use mockall::predicate;
     use std::pin::Pin;
     use tokio::sync::{broadcast, mpsc};
@@ -235,8 +235,8 @@ mod tests {
             io::BufReader,
         };
 
-        let name = "output.fit";
-        let f = File::open(name).unwrap();
+        let recording_name = Config::default().get_recording_name();
+        let f = File::open(recording_name.clone()).unwrap();
         let br = BufReader::new(f);
         let mut dec = Decoder::new(br);
 
@@ -301,6 +301,6 @@ mod tests {
 
         println!("{:?}", msg.fields);
         assert_eq!(fit.messages.len(), 5);
-        let _ = remove_file("output.fit");
+        let _ = remove_file(recording_name);
     }
 }

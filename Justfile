@@ -4,6 +4,8 @@ runner := if x'${env:-local}' == "docker" {
     "docker exec -it suffice-dev-1"
   }
 
+all: build test lint
+
 docker-build:
   docker compose build dev
 

@@ -1,4 +1,6 @@
+use crate::config::Config;
 use crate::ftms::BikeData;
+
 #[allow(unused_imports)]
 use chrono::TimeZone as _;
 use chrono::{DateTime, Local};
@@ -20,12 +22,7 @@ use tracing::{Level, event, instrument};
 #[instrument(skip(data))]
 /// Saves a collection of BikeData to a FIT file on disk.
 pub(crate) fn save_file(data: &mut [BikeData]) -> Result<(), Error> {
-    // NOTE: adapted from the example in the documentation
-    // https://crates.io/crates/rustyfit#encode-using-mesgdef-module
-
-    // FIXME: make this a random/timestamped name and/or with a name specified by user
-    let fout_name = "output.fit";
-    let fout = File::create(fout_name)?;
+    let fout = File::create(Config::default().get_recording_name())?;
     let mut bw = BufWriter::new(fout);
     let mut enc = Encoder::new(&mut bw);
 
