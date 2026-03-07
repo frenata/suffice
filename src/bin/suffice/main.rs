@@ -3,6 +3,7 @@ use std::error::Error;
 use tokio::sync::{broadcast, mpsc};
 
 use suffice::bluetooth::BluetoothDevice;
+use suffice::config::Config;
 use suffice::ftms::{BikeData, FitnessDevice, SampleDevice};
 use suffice::trainer::{Command, Trainer};
 
@@ -62,10 +63,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
         Level::INFO
     };
 
+    let config = Config::default().get_dir();
+    println!("logs and FIT files will be written to {:?}", config.clone());
+    let file_appender = tracing_appender::rolling::daily(config, "suffice.log");
+    let (non_blocking, _guard) = tracing_appender::non_blocking(file_appender);
     let subscriber = tracing_subscriber::fmt()
         .compact()
         .with_max_level(level)
-        .with_writer(std::io::stderr)
+        .with_writer(non_blocking)
         .finish();
     tracing::subscriber::set_global_default(subscriber)?;
 

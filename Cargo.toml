@@ -26,6 +26,7 @@ derivative = "2.2.0"
 clap = { version = "4.5.60", features = ["derive"] }
 async-stream = "0.3.6"
 rand = "0.10.0"
+tracing-appender = "0.2.4"
 
 [dev-dependencies]
 mockall = "0.14.0"
