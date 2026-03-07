@@ -20,6 +20,22 @@ use suffice::trainer::Command;
 
 use crate::stats::Stat;
 
+#[derive(Debug, Derivative)]
+#[derivative(Default)]
+struct RideState {
+    mode: Mode,
+    #[derivative(Default(value = "true"))]
+    mode_dirty: bool,
+    #[derivative(Default(value = "true"))]
+    level_dirty: bool,
+
+    #[derivative(Default(value = "false"))]
+    is_recording: bool,
+
+    resistance: i16,
+    power: i16,
+}
+
 #[derive(Debug, Default)]
 enum Mode {
     Power,
@@ -40,17 +56,12 @@ struct Stats {
 #[derivative(Default)]
 /// The main application data bundle
 pub struct App {
-    resistance: i16,
-    power: i16,
     exit: bool,
-    mode: Mode,
-    #[derivative(Default(value = "true"))]
-    mode_dirty: bool,
-    #[derivative(Default(value = "true"))]
-    level_dirty: bool,
     to_trainer: Option<mpsc::UnboundedSender<Command>>,
     from_trainer: Option<broadcast::Receiver<BikeData>>,
+
     stats: Stats,
+    ride: RideState,
 }
 
 impl App {
@@ -105,18 +116,18 @@ impl App {
                 _ => {}
             };
         } else {
-            if self.mode_dirty {
+            if self.ride.mode_dirty {
                 let _ = self
                     .to_trainer
                     .as_ref()
                     .expect("send should always work")
                     .send(Command::Reset);
                 ev!(Level::INFO, "sent reset command");
-                self.mode_dirty = false;
+                self.ride.mode_dirty = false;
             }
 
-            if self.level_dirty {
-                match self.mode {
+            if self.ride.level_dirty {
+                match self.ride.mode {
                     Mode::Power => {
                         let _ = self
                             .to_trainer
@@ -127,7 +138,7 @@ impl App {
                             .to_trainer
                             .as_ref()
                             .expect("")
-                            .send(Command::Power(self.power));
+                            .send(Command::Power(self.ride.power));
                     }
                     Mode::Resistance => {
                         let _ = self.to_trainer.as_ref().expect("").send(Command::Reset);
@@ -135,15 +146,15 @@ impl App {
                             .to_trainer
                             .as_ref()
                             .expect("")
-                            .send(Command::Resist((self.resistance as u8).into()));
+                            .send(Command::Resist((self.ride.resistance as u8).into()));
                     }
                 }
                 ev!(
                     Level::INFO,
                     "sent level change command for {:?} mode",
-                    self.mode
+                    self.ride.mode
                 );
-                self.level_dirty = false;
+                self.ride.level_dirty = false;
             }
         }
 
@@ -163,6 +174,7 @@ impl App {
                     .as_ref()
                     .expect("")
                     .send(Command::ToggleRecording);
+                self.ride.is_recording = !self.ride.is_recording;
             }
             _ => {}
         }
@@ -173,27 +185,27 @@ impl App {
     }
 
     fn more(&mut self) {
-        match self.mode {
-            Mode::Power => self.power = (self.power + 10).clamp(0, 1000),
-            Mode::Resistance => self.resistance = (self.resistance + 1).clamp(0, 100),
+        match self.ride.mode {
+            Mode::Power => self.ride.power = (self.ride.power + 10).clamp(0, 1000),
+            Mode::Resistance => self.ride.resistance = (self.ride.resistance + 1).clamp(0, 100),
         }
-        self.level_dirty = true;
+        self.ride.level_dirty = true;
     }
 
     fn less(&mut self) {
-        match self.mode {
-            Mode::Power => self.power = (self.power - 10).clamp(0, 1000),
-            Mode::Resistance => self.resistance = (self.resistance - 1).clamp(0, 100),
+        match self.ride.mode {
+            Mode::Power => self.ride.power = (self.ride.power - 10).clamp(0, 1000),
+            Mode::Resistance => self.ride.resistance = (self.ride.resistance - 1).clamp(0, 100),
         }
-        self.level_dirty = true;
+        self.ride.level_dirty = true;
     }
 
     fn change_mode(&mut self, _change: i8) {
-        match self.mode {
-            Mode::Power => self.mode = Mode::Resistance,
-            Mode::Resistance => self.mode = Mode::Power,
+        match self.ride.mode {
+            Mode::Power => self.ride.mode = Mode::Resistance,
+            Mode::Resistance => self.ride.mode = Mode::Power,
         }
-        self.mode_dirty = true;
+        self.ride.mode_dirty = true;
     }
 }
 
@@ -206,7 +218,11 @@ impl Widget for &App {
             " Less ".into(),
             "<Down>".blue().bold(),
             " Record ".into(),
-            "<R>".blue().bold(),
+            if self.ride.is_recording {
+                "<R>".red().slow_blink().bold()
+            } else {
+                "<R>".blue().bold()
+            },
             " Quit ".into(),
             "<Q> ".blue().bold(),
         ]);
@@ -222,10 +238,13 @@ impl Widget for &App {
         let dist_total = self.stats.distance.total();
 
         let counter = Text::from(vec![
-            Line::from(match self.mode {
-                Mode::Power => vec!["Power: ".into(), self.power.to_string().yellow()],
+            Line::from(match self.ride.mode {
+                Mode::Power => vec!["Power: ".into(), self.ride.power.to_string().yellow()],
                 Mode::Resistance => {
-                    vec!["Resistance: ".into(), self.resistance.to_string().yellow()]
+                    vec![
+                        "Resistance: ".into(),
+                        self.ride.resistance.to_string().yellow(),
+                    ]
                 }
             }),
             Line::from(vec![]),
@@ -266,8 +285,11 @@ mod tests {
     #[test]
     fn render_no_data() {
         let mut app = App {
-            level_dirty: false,
-            mode_dirty: false,
+            ride: RideState {
+                level_dirty: false,
+                mode_dirty: false,
+                ..Default::default()
+            },
             ..Default::default()
         };
         let mut buf = Buffer::empty(Rect::new(0, 0, 50, 10));
@@ -312,8 +334,11 @@ mod tests {
     #[test]
     fn render_with_data() {
         let mut app = App {
-            level_dirty: false,
-            mode_dirty: false,
+            ride: RideState {
+                level_dirty: false,
+                mode_dirty: false,
+                ..Default::default()
+            },
             ..Default::default()
         };
         let mut buf = Buffer::empty(Rect::new(0, 0, 50, 10));
