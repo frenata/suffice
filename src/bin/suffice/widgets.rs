@@ -1,8 +1,8 @@
 use ratatui::{
-    style::Stylize,
-    symbols::border,
+    style::{Style, Stylize},
+    symbols::{self, border},
     text::{Line, Text},
-    widgets::{Block, Padding, Paragraph},
+    widgets::{Axis, Block, Chart, Dataset, GraphType, Padding, Paragraph},
 };
 
 use crate::state::{Mode, RideState, Stats};
@@ -77,12 +77,42 @@ pub(crate) fn totals(stats: &Stats) -> Paragraph<'_> {
     let dist_total = stats.distance.total();
 
     let lines = Text::from(vec![
-        Line::from(vec!["Work: ".into(), format!("{}", joules).yellow()]),
+        Line::from(vec!["Total Work: ".into(), format!("{}", joules).yellow()]),
         Line::from(vec![
-            "Distance: ".into(),
+            "Total Distance: ".into(),
             format!("{:.3} km", dist_total as f32 / 1000.).yellow(),
         ]),
     ]);
 
     Paragraph::new(lines).centered()
+}
+
+pub(crate) fn chart<'a>(name: &'a str, color: Style, pslice: &'a mut [(f64, f64)]) -> Chart<'a> {
+    let raw = pslice.iter().map(|(_, d)| *d as i32);
+    let min: f64 = raw.clone().min().unwrap_or_default().into();
+    let max: f64 = raw.clone().max().unwrap_or_default().into();
+    let size = raw.len();
+
+    let datasets = vec![
+        Dataset::default()
+            .name(name)
+            .marker(symbols::Marker::Braille)
+            .graph_type(GraphType::Line)
+            .style(color)
+            .data(pslice),
+    ];
+
+    let x_axis = Axis::default()
+        // .style(Style::default().white())
+        .bounds([0.0, size as f64]);
+
+    let y_axis = Axis::default()
+        // .style(Style::default().white())
+        .bounds([min, max])
+        .labels([min.to_string(), max.to_string()]);
+
+    Chart::new(datasets)
+        .block(Block::new().padding(Padding::uniform(1)))
+        .x_axis(x_axis)
+        .y_axis(y_axis)
 }

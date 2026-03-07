@@ -7,6 +7,7 @@ use ratatui::{
     DefaultTerminal, Frame,
     buffer::Buffer,
     layout::{Constraint, Direction, Layout, Rect},
+    style::Style,
     widgets::Widget,
 };
 use tokio::sync::{broadcast, mpsc};
@@ -16,7 +17,7 @@ use suffice::ftms::BikeData;
 use suffice::trainer::Command;
 
 use crate::state::*;
-use crate::widgets::{border, level, rolling, totals};
+use crate::widgets::{border, chart, level, rolling, totals};
 
 #[derive(Debug, Default)]
 enum View {
@@ -194,7 +195,8 @@ impl Widget for &App {
             .direction(Direction::Vertical)
             .constraints(vec![
                 Constraint::Min(3),
-                Constraint::Percentage(50),
+                Constraint::Percentage(40),
+                Constraint::Percentage(40),
                 Constraint::Fill(99),
             ])
             .split(area);
@@ -203,7 +205,21 @@ impl Widget for &App {
         match self.view {
             View::Rolling => rolling(&self.stats).render(outer_layout[1], buf),
             View::Totals => totals(&self.stats).render(outer_layout[1], buf),
-            View::Chart => todo!(),
+            View::Chart => {
+                chart(
+                    "power",
+                    Style::default().magenta(),
+                    &mut self.stats.power.data()[..],
+                )
+                .render(outer_layout[1], buf);
+
+                chart(
+                    "cadence",
+                    Style::default().cyan(),
+                    &mut self.stats.cadence.data()[..],
+                )
+                .render(outer_layout[2], buf);
+            }
         }
         border(&self.ride).render(area, buf);
     }
@@ -339,6 +355,167 @@ mod tests {
         expected.set_style(Rect::new(19, 9, 6, 1), key_style);
         expected.set_style(Rect::new(33, 9, 3, 1), key_style);
         expected.set_style(Rect::new(42, 9, 4, 1), key_style);
+
+        assert_eq!(buf, expected);
+    }
+
+    #[test]
+    fn render_totals_no_data() {
+        let mut app = App {
+            ride: RideState {
+                level_dirty: false,
+                mode_dirty: false,
+                ..Default::default()
+            },
+            view: View::Totals,
+            ..Default::default()
+        };
+        let mut buf = Buffer::empty(Rect::new(0, 0, 50, 10));
+
+        let (_data_tx, data_rx) = broadcast::channel::<BikeData>(100);
+        app.from_trainer = Some(data_rx);
+        let _ = app.handle_events();
+        app.render(buf.area, &mut buf);
+
+        let mut expected = Buffer::with_lines(vec![
+            "┏━━━━━━━━━━━━━━ -= It Suffices =- ━━━━━━━━━━━━━━━┓",
+            "┃                  Resistance: 0                 ┃",
+            "┃                                                ┃",
+            "┃                  Total Work: 0                 ┃",
+            "┃            Total Distance: 0.000 km            ┃",
+            "┃                                                ┃",
+            "┃                                                ┃",
+            "┃                                                ┃",
+            "┃                                                ┃",
+            "┗━━ More <Up> Less <Down> Record <R> Quit <Q> ━━━┛",
+        ]);
+        let title_style = Style::new().bold();
+        let counter_style = Style::new().yellow();
+        let key_style = Style::new().blue().bold();
+        expected.set_style(Rect::new(15, 0, 19, 1), title_style);
+        expected.set_style(Rect::new(31, 1, 1, 1), counter_style);
+
+        expected.set_style(Rect::new(31, 3, 1, 1), counter_style);
+        expected.set_style(Rect::new(29, 4, 8, 1), counter_style);
+
+        expected.set_style(Rect::new(9, 9, 4, 1), key_style);
+        expected.set_style(Rect::new(19, 9, 6, 1), key_style);
+        expected.set_style(Rect::new(33, 9, 3, 1), key_style);
+        expected.set_style(Rect::new(42, 9, 4, 1), key_style);
+
+        assert_eq!(buf, expected);
+    }
+
+    #[test]
+    fn render_chart_no_data() {
+        let mut app = App {
+            ride: RideState {
+                level_dirty: false,
+                mode_dirty: false,
+                ..Default::default()
+            },
+            view: View::Chart,
+            ..Default::default()
+        };
+        let mut buf = Buffer::empty(Rect::new(0, 0, 50, 13));
+
+        let (data_tx, data_rx) = broadcast::channel::<BikeData>(100);
+        app.from_trainer = Some(data_rx);
+
+        let _ = data_tx.send(BikeData {
+            power: Some(100),
+            cadence: Some(50),
+            heart_rate: Some(93),
+            resistance: None,
+            speed: Some(10),
+            distance: Some(14),
+            ..Default::default()
+        });
+
+        let _ = data_tx.send(BikeData {
+            power: Some(100),
+            cadence: Some(50),
+            heart_rate: Some(93),
+            resistance: None,
+            speed: Some(10),
+            distance: Some(14),
+            ..Default::default()
+        });
+
+        let _ = data_tx.send(BikeData {
+            power: Some(100),
+            cadence: Some(50),
+            heart_rate: Some(93),
+            resistance: None,
+            speed: Some(10),
+            distance: Some(14),
+            ..Default::default()
+        });
+
+        let _ = data_tx.send(BikeData {
+            power: Some(80),
+            cadence: Some(70),
+            heart_rate: Some(93),
+            resistance: None,
+            speed: Some(10),
+            distance: Some(14),
+            ..Default::default()
+        });
+
+        let _ = data_tx.send(BikeData {
+            power: Some(90),
+            cadence: Some(75),
+            heart_rate: Some(93),
+            resistance: None,
+            speed: Some(10),
+            distance: Some(14),
+            ..Default::default()
+        });
+
+        let _ = app.handle_events();
+        let _ = app.handle_events();
+        let _ = app.handle_events();
+        let _ = app.handle_events();
+        let _ = app.handle_events();
+        let _ = app.handle_events();
+        app.render(buf.area, &mut buf);
+
+        let mut expected = Buffer::with_lines(vec![
+            "┏━━━━━━━━━━━━━━ -= It Suffices =- ━━━━━━━━━━━━━━━┓",
+            "┃                  Resistance: 0                 ┃",
+            "┃                                                ┃",
+            "┃                                                ┃",
+            "┃100│               ⡠⠔⠊⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠁        ┃",
+            "┃   │⠤⣀⣀        ⢀⡠⠔⠉                             ┃",
+            "┃80 │   ⠉⠑⠒⠤⠤⣀⠤⠒⠁                                ┃",
+            "┃                                                ┃",
+            "┃                                                ┃",
+            "┃75│⠉⠉⠑⠒⠒⠒⠒⠤⠤⠤⣀                                  ┃",
+            "┃  │           ⠉⠒⠤⣀                              ┃",
+            "┃50│               ⠉⠒⠤⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀         ┃",
+            "┗━━ More <Up> Less <Down> Record <R> Quit <Q> ━━━┛",
+        ]);
+        let title_style = Style::new().bold();
+        let counter_style = Style::new().yellow();
+        let key_style = Style::new().blue().bold();
+        let power_style = Style::new().magenta();
+        let cadence_style = Style::new().cyan();
+
+        expected.set_style(Rect::new(15, 0, 19, 1), title_style);
+        expected.set_style(Rect::new(31, 1, 1, 1), counter_style);
+
+        expected.set_style(Rect::new(20, 4, 21, 1), power_style);
+        expected.set_style(Rect::new(5, 5, 3, 1), power_style);
+        expected.set_style(Rect::new(16, 5, 4, 1), power_style);
+        expected.set_style(Rect::new(8, 6, 9, 1), power_style);
+        expected.set_style(Rect::new(4, 9, 11, 1), cadence_style);
+        expected.set_style(Rect::new(15, 10, 4, 1), cadence_style);
+        expected.set_style(Rect::new(19, 11, 21, 1), cadence_style);
+
+        expected.set_style(Rect::new(9, 12, 4, 1), key_style);
+        expected.set_style(Rect::new(19, 12, 6, 1), key_style);
+        expected.set_style(Rect::new(33, 12, 3, 1), key_style);
+        expected.set_style(Rect::new(42, 12, 4, 1), key_style);
 
         assert_eq!(buf, expected);
     }

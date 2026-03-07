@@ -24,12 +24,22 @@ impl Stat {
         self.values.push_front(value);
         self.total += value as u64;
     }
+
+    pub(crate) fn data(&self) -> Vec<(f64, f64)> {
+        self.values
+            .clone()
+            .make_contiguous()
+            .iter()
+            .enumerate()
+            .map(|(i, d)| (i as f64, *d as f64))
+            .collect()
+    }
 }
 
 impl Default for Stat {
     fn default() -> Self {
         Stat {
-            values: Deque::new(30),
+            values: Deque::new(60),
             total: 0,
         }
     }
