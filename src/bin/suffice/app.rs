@@ -6,11 +6,8 @@ use derivative::Derivative;
 use ratatui::{
     DefaultTerminal, Frame,
     buffer::Buffer,
-    layout::Rect,
-    style::Stylize,
-    symbols::border,
-    text::{Line, Text},
-    widgets::{Block, Paragraph, Widget},
+    layout::{Constraint, Direction, Layout, Rect},
+    widgets::Widget,
 };
 use tokio::sync::{broadcast, mpsc};
 use tracing::{Level, event as ev, instrument};
@@ -18,42 +15,18 @@ use tracing::{Level, event as ev, instrument};
 use suffice::ftms::BikeData;
 use suffice::trainer::Command;
 
-use crate::stats::Stat;
-
-#[derive(Debug, Derivative)]
-#[derivative(Default)]
-struct RideState {
-    mode: Mode,
-    #[derivative(Default(value = "true"))]
-    mode_dirty: bool,
-    #[derivative(Default(value = "true"))]
-    level_dirty: bool,
-
-    #[derivative(Default(value = "false"))]
-    is_recording: bool,
-
-    resistance: i16,
-    power: i16,
-}
+use crate::state::*;
+use crate::widgets::{border, level, rolling, totals};
 
 #[derive(Debug, Default)]
-enum Mode {
-    Power,
+enum View {
     #[default]
-    Resistance,
+    Rolling,
+    Totals,
+    Chart,
 }
 
-#[derive(Debug, Default)]
-struct Stats {
-    power: Stat,
-    cadence: Stat,
-    heart_rate: Stat,
-    speed: Stat,
-    distance: Stat,
-}
-
-#[derive(Debug, Derivative)]
-#[derivative(Default)]
+#[derive(Debug, Derivative, Default)]
 /// The main application data bundle
 pub struct App {
     exit: bool,
@@ -62,6 +35,7 @@ pub struct App {
 
     stats: Stats,
     ride: RideState,
+    view: View,
 }
 
 impl App {
@@ -168,6 +142,11 @@ impl App {
             KeyCode::Down => self.less(),
             KeyCode::Right => self.change_mode(1),
             KeyCode::Left => self.change_mode(-1),
+            KeyCode::Tab => match self.view {
+                View::Rolling => self.view = View::Totals,
+                View::Totals => self.view = View::Chart,
+                View::Chart => self.view = View::Rolling,
+            },
             KeyCode::Char('r') => {
                 let _ = self
                     .to_trainer
@@ -211,69 +190,22 @@ impl App {
 
 impl Widget for &App {
     fn render(self, area: Rect, buf: &mut Buffer) {
-        let title = Line::from(" -= It Suffices =- ".bold());
-        let instructions = Line::from(vec![
-            " More ".into(),
-            "<Up>".blue().bold(),
-            " Less ".into(),
-            "<Down>".blue().bold(),
-            " Record ".into(),
-            if self.ride.is_recording {
-                "<R>".red().slow_blink().bold()
-            } else {
-                "<R>".blue().bold()
-            },
-            " Quit ".into(),
-            "<Q> ".blue().bold(),
-        ]);
-        let block = Block::bordered()
-            .title(title.centered())
-            .title_bottom(instructions.centered())
-            .border_set(border::THICK);
+        let outer_layout = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints(vec![
+                Constraint::Min(3),
+                Constraint::Percentage(50),
+                Constraint::Fill(99),
+            ])
+            .split(area);
 
-        let power_3s = self.stats.power.rolling(3);
-        let cadence_3s = self.stats.cadence.rolling(3);
-        let heart_3s = self.stats.heart_rate.rolling(3);
-        let speed_3s = self.stats.speed.rolling(3);
-        let dist_total = self.stats.distance.total();
-
-        let counter = Text::from(vec![
-            Line::from(match self.ride.mode {
-                Mode::Power => vec!["Power: ".into(), self.ride.power.to_string().yellow()],
-                Mode::Resistance => {
-                    vec![
-                        "Resistance: ".into(),
-                        self.ride.resistance.to_string().yellow(),
-                    ]
-                }
-            }),
-            Line::from(vec![]),
-            Line::from(vec![
-                "3s Power: ".into(),
-                format!("{:.2}", power_3s).yellow(),
-            ]),
-            Line::from(vec![
-                "3s Cadence: ".into(),
-                format!("{:.2}", cadence_3s).yellow(),
-            ]),
-            Line::from(vec![
-                "3s Heart Rate: ".into(),
-                format!("{:.2}", heart_3s).yellow(),
-            ]),
-            Line::from(vec![
-                "3s Speed: ".into(),
-                format!("{:.2}", speed_3s / 100.).yellow(),
-            ]),
-            Line::from(vec![
-                "Distance: ".into(),
-                format!("{:.3} km", dist_total as f32 / 1000.).yellow(),
-            ]),
-        ]);
-
-        Paragraph::new(counter)
-            .centered()
-            .block(block)
-            .render(area, buf)
+        level(&self.ride).render(outer_layout[0], buf);
+        match self.view {
+            View::Rolling => rolling(&self.stats).render(outer_layout[1], buf),
+            View::Totals => totals(&self.stats).render(outer_layout[1], buf),
+            View::Chart => todo!(),
+        }
+        border(&self.ride).render(area, buf);
     }
 }
 
@@ -307,7 +239,7 @@ mod tests {
             "┃                 3s Cadence: NaN                ┃",
             "┃               3s Heart Rate: NaN               ┃",
             "┃                  3s Speed: NaN                 ┃",
-            "┃               Distance: 0.000 km               ┃",
+            "┃                                                ┃",
             "┃                                                ┃",
             "┗━━ More <Up> Less <Down> Record <R> Quit <Q> ━━━┛",
         ]);
@@ -321,7 +253,6 @@ mod tests {
         expected.set_style(Rect::new(30, 4, 3, 1), counter_style);
         expected.set_style(Rect::new(31, 5, 3, 1), counter_style);
         expected.set_style(Rect::new(29, 6, 3, 1), counter_style);
-        expected.set_style(Rect::new(26, 7, 8, 1), counter_style);
 
         expected.set_style(Rect::new(9, 9, 4, 1), key_style);
         expected.set_style(Rect::new(19, 9, 6, 1), key_style);
@@ -389,7 +320,7 @@ mod tests {
             "┃                3s Cadence: 51.00               ┃",
             "┃              3s Heart Rate: 91.33              ┃",
             "┃                 3s Speed: 20.72                ┃",
-            "┃               Distance: 0.044 km               ┃",
+            "┃                                                ┃",
             "┃                                                ┃",
             "┗━━ More <Up> Less <Down> Record <R> Quit <Q> ━━━┛",
         ]);
@@ -403,7 +334,6 @@ mod tests {
         expected.set_style(Rect::new(29, 4, 5, 1), counter_style);
         expected.set_style(Rect::new(30, 5, 5, 1), counter_style);
         expected.set_style(Rect::new(28, 6, 5, 1), counter_style);
-        expected.set_style(Rect::new(26, 7, 8, 1), counter_style);
 
         expected.set_style(Rect::new(9, 9, 4, 1), key_style);
         expected.set_style(Rect::new(19, 9, 6, 1), key_style);

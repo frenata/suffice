@@ -8,7 +8,9 @@ use suffice::ftms::{BikeData, FitnessDevice, SampleDevice};
 use suffice::trainer::{Command, Trainer};
 
 mod app;
+mod state;
 mod stats;
+mod widgets;
 use app::App;
 
 use clap::{Args, Parser, Subcommand};
