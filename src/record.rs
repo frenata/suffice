@@ -19,7 +19,7 @@ use tracing::{Level, event, instrument};
 
 #[instrument(skip(data))]
 /// Saves a collection of BikeData to a FIT file on disk.
-pub(crate) fn save_file(data: Vec<BikeData>) -> Result<(), Error> {
+pub(crate) fn save_file(data: &mut [BikeData]) -> Result<(), Error> {
     // NOTE: adapted from the example in the documentation
     // https://crates.io/crates/rustyfit#encode-using-mesgdef-module
 
@@ -38,7 +38,7 @@ pub(crate) fn save_file(data: Vec<BikeData>) -> Result<(), Error> {
     Ok(())
 }
 
-fn to_fit(data: Vec<BikeData>) -> FIT {
+fn to_fit(data: &mut [BikeData]) -> FIT {
     let start = data[0].time;
     let end = data[data.len() - 1].time;
 
@@ -61,12 +61,15 @@ fn to_fit(data: Vec<BikeData>) -> FIT {
 
 #[test]
 fn test_to_fit() {
-    let data = vec![BikeData::default()];
+    use fixed_deque::Deque;
+
+    let mut data = Deque::<BikeData>::new(10);
+    data.push_back(BikeData::default());
 
     let buf = std::io::Cursor::new(Vec::<u8>::new());
     let mut bw = BufWriter::new(buf);
     let mut enc = Encoder::new(&mut bw);
-    let mut actual = to_fit(data);
+    let mut actual = to_fit(data.make_contiguous());
     if let Ok(_res) = enc.encode(&mut actual) {}
 
     assert_eq!(actual.file_header.data_size, 124);
