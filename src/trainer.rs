@@ -80,6 +80,7 @@ impl<T: FitnessDevice + std::fmt::Debug> Trainer<T> {
                     let dist = (dt * (speed / 360) as f32) as u32;
                     data.distance = Some(dist);
                 }
+                self.data.push_back(data);
                 let _ = data_tx.send(data);
             }
 
@@ -269,8 +270,37 @@ mod tests {
             }
         }
 
+        let msg = &fit.messages[2];
+        for field in msg.fields.clone() {
+            if field.num == mesgdef::Record::CADENCE {
+                assert_eq!(field.value.as_u8(), 88)
+            }
+
+            if field.num == mesgdef::Record::POWER {
+                assert_eq!(field.value.as_u16(), 100)
+            }
+
+            if field.num == mesgdef::Record::SPEED {
+                assert_eq!(field.value.as_u16(), 20)
+            }
+
+            if field.num == mesgdef::Record::HEART_RATE {
+                assert_eq!(field.value.as_u8(), 80)
+            }
+
+            if field.num == mesgdef::Record::RESISTANCE {
+                assert_eq!(field.value.as_u8(), 4)
+            }
+
+            if field.num == mesgdef::Record::DISTANCE {
+                // FIXME: this seems wrong and likely indicates an error
+                // in the units we send to the FIT file for distance
+                assert_eq!(field.value.as_u8(), 255)
+            }
+        }
+
         println!("{:?}", msg.fields);
-        assert_eq!(fit.messages.len(), 4);
+        assert_eq!(fit.messages.len(), 5);
         let _ = remove_file("output.fit");
     }
 }
