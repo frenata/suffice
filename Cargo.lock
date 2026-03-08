@@ -1962,7 +1962,7 @@ dependencies = [
 
 [[package]]
 name = "suffice"
-version = "0.3.0-a"
+version = "0.3.0"
 dependencies = [
  "async-stream",
  "average",
