@@ -6,15 +6,20 @@
 
 ## Goals
 
-* modes: ERG, Level, maybe Sim if I'm feeling spicy
-* run as a daemon, see status of the trainer in starship
+* modes: ERG, Level, Workout
+* uber-minimal aesthetics
+  * simple TUI
+  * run as a daemon with starship.rs integration
 * record FIT (or similar) files to prove your sweat
 
 ## Non Goals
 
 * non-cycling machines
+* Simulation mode
 
 ## Usage
+
+`cargo install suffice`
 
 ### CLI Options
 
@@ -40,6 +45,10 @@ Options:
 * `<Tab>` - cycle through views: rolling stats, totals, charts
 * `<Left/Right>` - switch between power modes: ERG, Resist
 * `<Up/Down>` - adjust the difficulty of the power mode
+
+## Development
+
+[just](https://github.com/casey/just) is used for the main development tasks, with the build environment specified via `docker`.
 
 ## Resources Used
 

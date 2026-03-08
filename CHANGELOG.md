@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+Nothing yet!
+
+## [0.3.0]
+
 ### Added
 
 * feature: add a CLI command to generate sample data, very useful for UX testing
