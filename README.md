@@ -12,8 +12,34 @@
 
 ## Non Goals
 
-* a persistent UI, HUD, etc.
 * non-cycling machines
+
+## Usage
+
+### CLI Options
+
+```
+Commands:
+  test    <DEVICE>  Test a connection to a device
+  sample            Connect to a fake device that generates sample data
+  connect <DEVICE>  Connect to a real device
+  help              Print this message or the help of the given subcommand(s)
+
+Options:
+  -v, --verbose  Verbose logging messages
+  -q, --quiet    Only show error messages
+  -h, --help     Print help
+  -V, --version  Print version
+```
+
+### TUI Commands
+
+* `<?>` - display help screen
+* `<Q>` - quit
+* `<R>` - start/stop recording to a FIT file
+* `<Tab>` - cycle through views: rolling stats, totals, charts
+* `<Left/Right>` - switch between power modes: ERG, Resist
+* `<Up/Down>` - adjust the difficulty of the power mode
 
 ## Resources Used
 
@@ -25,3 +51,4 @@
 * not directly relevant, but a fascinating blog post on [*creating* a FTMS](https://ftmsemu.github.io/)
 * [making sense](https://github.com/caelansar/termirs/blob/master/src/main.rs) of tokio + ratatui
 * [verifying](https://www.fitfileviewer.com/) that the fit files were produced correctly
+* figuring out how to return a [ref to a local](https://oneuptime.com/blog/post/2026-01-25-return-reference-local-variable-rust/view) in rust

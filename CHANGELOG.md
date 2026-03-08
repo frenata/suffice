@@ -7,7 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Nothing!
+### Added
+
+* feature: add a CLI command to generate sample data, very useful for UX testing
+* feature: display distance and speed in the TUI
+* UX: provide visual feedback on whether recording is active or not
+* feature: add distinct TUI views for rolling stats, total stats, or visual charts
+* feature: add an in-TUI help screen with all commands
+
+### Fixed
+
+* fix: properly handle all the bluetooth FTMS flags
+* fix: add timeouts on bluetooth await code to prevent the `run` loop from ever getting completely stuck
+
+### Improved
+
+* fix: hold a Fixed Deque of `BikeData` instead of an uncapped `Vec`
+* chore: compute virtual distance even when not recording
+* chore: write logs and output files to a config dir, not `PWD`
 
 ## [0.2.0]
 

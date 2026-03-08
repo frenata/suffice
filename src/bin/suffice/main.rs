@@ -29,14 +29,14 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Commands {
-    /// Test whether a connection can be made.
+    /// Test a connection to a device
     Test {
         /// The bluetooth device to connect to.
         target: String,
     },
     /// Connect to a fake device that generates sample data
     Sample {},
-    /// Connect a train on this device.
+    /// Connect to a real device
     Connect {
         /// The bluetooth device to connect to.
         target: String,
