@@ -17,7 +17,7 @@ use suffice::ftms::BikeData;
 use suffice::trainer::Command;
 
 use crate::state::*;
-use crate::widgets::{border, chart, level, rolling, totals};
+use crate::widgets::{Help, border, chart, level, rolling, totals};
 
 #[derive(Debug, Default)]
 enum View {
@@ -31,6 +31,8 @@ enum View {
 /// The main application data bundle
 pub struct App {
     exit: bool,
+    help: bool,
+
     to_trainer: Option<mpsc::UnboundedSender<Command>>,
     from_trainer: Option<broadcast::Receiver<BikeData>>,
 
@@ -139,6 +141,7 @@ impl App {
     fn handle_key_event(&mut self, key_event: KeyEvent) {
         match key_event.code {
             KeyCode::Char('q') => self.exit(),
+            KeyCode::Char('?') => self.help = !self.help,
             KeyCode::Up => self.more(),
             KeyCode::Down => self.less(),
             KeyCode::Right => self.change_mode(1),
@@ -221,6 +224,10 @@ impl Widget for &App {
                 .render(outer_layout[2], buf);
             }
         }
+
+        if self.help {
+            Help::default().render(area, buf);
+        }
         border(&self.ride).render(area, buf);
     }
 }
@@ -248,17 +255,18 @@ mod tests {
         app.render(buf.area, &mut buf);
 
         let mut expected = Buffer::with_lines(vec![
-            "┏━━━━━━━━━━━━━━ -= It Suffices =- ━━━━━━━━━━━━━━━┓",
-            "┃                  Resistance: 0                 ┃",
-            "┃                                                ┃",
-            "┃                  3s Power: NaN                 ┃",
-            "┃                 3s Cadence: NaN                ┃",
-            "┃               3s Heart Rate: NaN               ┃",
-            "┃                  3s Speed: NaN                 ┃",
-            "┃                                                ┃",
-            "┃                                                ┃",
-            "┗━━ More <Up> Less <Down> Record <R> Quit <Q> ━━━┛",
+            "╭────────────── -= It Suffices =- ───────────────╮",
+            "│                  Resistance: 0                 │",
+            "│                                                │",
+            "│                  3s Power: NaN                 │",
+            "│                 3s Cadence: NaN                │",
+            "│               3s Heart Rate: NaN               │",
+            "│                  3s Speed: NaN                 │",
+            "│                                                │",
+            "│                                                │",
+            "╰───────── Record <R> Help <?> Quit <Q> ─────────╯",
         ]);
+
         let title_style = Style::new().bold();
         let counter_style = Style::new().yellow();
         let key_style = Style::new().blue().bold();
@@ -270,10 +278,9 @@ mod tests {
         expected.set_style(Rect::new(31, 5, 3, 1), counter_style);
         expected.set_style(Rect::new(29, 6, 3, 1), counter_style);
 
-        expected.set_style(Rect::new(9, 9, 4, 1), key_style);
-        expected.set_style(Rect::new(19, 9, 6, 1), key_style);
-        expected.set_style(Rect::new(33, 9, 3, 1), key_style);
-        expected.set_style(Rect::new(42, 9, 4, 1), key_style);
+        expected.set_style(Rect::new(18, 9, 4, 1), key_style);
+        expected.set_style(Rect::new(27, 9, 4, 1), key_style);
+        expected.set_style(Rect::new(36, 9, 4, 1), key_style);
 
         assert_eq!(buf, expected);
     }
@@ -329,16 +336,16 @@ mod tests {
         app.render(buf.area, &mut buf);
 
         let mut expected = Buffer::with_lines(vec![
-            "┏━━━━━━━━━━━━━━ -= It Suffices =- ━━━━━━━━━━━━━━━┓",
-            "┃                  Resistance: 0                 ┃",
-            "┃                                                ┃",
-            "┃                3s Power: 115.00                ┃",
-            "┃                3s Cadence: 51.00               ┃",
-            "┃              3s Heart Rate: 91.33              ┃",
-            "┃                 3s Speed: 20.72                ┃",
-            "┃                                                ┃",
-            "┃                                                ┃",
-            "┗━━ More <Up> Less <Down> Record <R> Quit <Q> ━━━┛",
+            "╭────────────── -= It Suffices =- ───────────────╮",
+            "│                  Resistance: 0                 │",
+            "│                                                │",
+            "│                3s Power: 115.00                │",
+            "│                3s Cadence: 51.00               │",
+            "│              3s Heart Rate: 91.33              │",
+            "│                 3s Speed: 20.72                │",
+            "│                                                │",
+            "│                                                │",
+            "╰───────── Record <R> Help <?> Quit <Q> ─────────╯",
         ]);
         let title_style = Style::new().bold();
         let counter_style = Style::new().yellow();
@@ -351,10 +358,9 @@ mod tests {
         expected.set_style(Rect::new(30, 5, 5, 1), counter_style);
         expected.set_style(Rect::new(28, 6, 5, 1), counter_style);
 
-        expected.set_style(Rect::new(9, 9, 4, 1), key_style);
-        expected.set_style(Rect::new(19, 9, 6, 1), key_style);
-        expected.set_style(Rect::new(33, 9, 3, 1), key_style);
-        expected.set_style(Rect::new(42, 9, 4, 1), key_style);
+        expected.set_style(Rect::new(18, 9, 4, 1), key_style);
+        expected.set_style(Rect::new(27, 9, 4, 1), key_style);
+        expected.set_style(Rect::new(36, 9, 4, 1), key_style);
 
         assert_eq!(buf, expected);
     }
@@ -378,16 +384,16 @@ mod tests {
         app.render(buf.area, &mut buf);
 
         let mut expected = Buffer::with_lines(vec![
-            "┏━━━━━━━━━━━━━━ -= It Suffices =- ━━━━━━━━━━━━━━━┓",
-            "┃                  Resistance: 0                 ┃",
-            "┃                                                ┃",
-            "┃                  Total Work: 0                 ┃",
-            "┃            Total Distance: 0.000 km            ┃",
-            "┃                                                ┃",
-            "┃                                                ┃",
-            "┃                                                ┃",
-            "┃                                                ┃",
-            "┗━━ More <Up> Less <Down> Record <R> Quit <Q> ━━━┛",
+            "╭────────────── -= It Suffices =- ───────────────╮",
+            "│                  Resistance: 0                 │",
+            "│                                                │",
+            "│                  Total Work: 0                 │",
+            "│            Total Distance: 0.000 km            │",
+            "│                                                │",
+            "│                                                │",
+            "│                                                │",
+            "│                                                │",
+            "╰───────── Record <R> Help <?> Quit <Q> ─────────╯",
         ]);
         let title_style = Style::new().bold();
         let counter_style = Style::new().yellow();
@@ -398,10 +404,9 @@ mod tests {
         expected.set_style(Rect::new(31, 3, 1, 1), counter_style);
         expected.set_style(Rect::new(29, 4, 8, 1), counter_style);
 
-        expected.set_style(Rect::new(9, 9, 4, 1), key_style);
-        expected.set_style(Rect::new(19, 9, 6, 1), key_style);
-        expected.set_style(Rect::new(33, 9, 3, 1), key_style);
-        expected.set_style(Rect::new(42, 9, 4, 1), key_style);
+        expected.set_style(Rect::new(18, 9, 4, 1), key_style);
+        expected.set_style(Rect::new(27, 9, 4, 1), key_style);
+        expected.set_style(Rect::new(36, 9, 4, 1), key_style);
 
         assert_eq!(buf, expected);
     }
@@ -481,19 +486,19 @@ mod tests {
         app.render(buf.area, &mut buf);
 
         let mut expected = Buffer::with_lines(vec![
-            "┏━━━━━━━━━━━━━━ -= It Suffices =- ━━━━━━━━━━━━━━━┓",
-            "┃                  Resistance: 0                 ┃",
-            "┃                                                ┃",
-            "┃                                                ┃",
-            "┃100│               ⡠⠔⠊⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠁        ┃",
-            "┃   │⠤⣀⣀        ⢀⡠⠔⠉                             ┃",
-            "┃80 │   ⠉⠑⠒⠤⠤⣀⠤⠒⠁                                ┃",
-            "┃                                                ┃",
-            "┃                                                ┃",
-            "┃75│⠉⠉⠑⠒⠒⠒⠒⠤⠤⠤⣀                                  ┃",
-            "┃  │           ⠉⠒⠤⣀                              ┃",
-            "┃50│               ⠉⠒⠤⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀         ┃",
-            "┗━━ More <Up> Less <Down> Record <R> Quit <Q> ━━━┛",
+            "╭────────────── -= It Suffices =- ───────────────╮",
+            "│                  Resistance: 0                 │",
+            "│                                                │",
+            "│                                                │",
+            "│100│               ⡠⠔⠊⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠁        │",
+            "│   │⠤⣀⣀        ⢀⡠⠔⠉                             │",
+            "│80 │   ⠉⠑⠒⠤⠤⣀⠤⠒⠁                                │",
+            "│                                                │",
+            "│                                                │",
+            "│75│⠉⠉⠑⠒⠒⠒⠒⠤⠤⠤⣀                                  │",
+            "│  │           ⠉⠒⠤⣀                              │",
+            "│50│               ⠉⠒⠤⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀         │",
+            "╰───────── Record <R> Help <?> Quit <Q> ─────────╯",
         ]);
         let title_style = Style::new().bold();
         let counter_style = Style::new().yellow();
@@ -512,10 +517,9 @@ mod tests {
         expected.set_style(Rect::new(15, 10, 4, 1), cadence_style);
         expected.set_style(Rect::new(19, 11, 21, 1), cadence_style);
 
-        expected.set_style(Rect::new(9, 12, 4, 1), key_style);
-        expected.set_style(Rect::new(19, 12, 6, 1), key_style);
-        expected.set_style(Rect::new(33, 12, 3, 1), key_style);
-        expected.set_style(Rect::new(42, 12, 4, 1), key_style);
+        expected.set_style(Rect::new(18, 12, 4, 1), key_style);
+        expected.set_style(Rect::new(27, 12, 4, 1), key_style);
+        expected.set_style(Rect::new(36, 12, 4, 1), key_style);
 
         assert_eq!(buf, expected);
     }
