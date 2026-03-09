@@ -252,7 +252,7 @@ mod tests {
             }
 
             if field.num == mesgdef::Record::SPEED {
-                assert_eq!(field.value.as_u16(), 20)
+                assert_eq!(field.value.as_u16(), 55)
             }
 
             if field.num == mesgdef::Record::HEART_RATE {
@@ -281,7 +281,7 @@ mod tests {
             }
 
             if field.num == mesgdef::Record::SPEED {
-                assert_eq!(field.value.as_u16(), 20)
+                assert_eq!(field.value.as_u16(), 55)
             }
 
             if field.num == mesgdef::Record::HEART_RATE {
