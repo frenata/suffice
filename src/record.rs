@@ -83,7 +83,8 @@ fn to_message(data: &BikeData) -> Message {
         rec.power = power;
     }
     if let Some(speed) = data.speed {
-        rec.speed = speed;
+        // Translate from 10m/hour (our internal unit) => mm/second (the FIT unit)
+        rec.speed = (speed as f32 * 2.777) as u16;
     }
     if let Some(heart_rate) = data.heart_rate {
         rec.heart_rate = heart_rate;
@@ -92,7 +93,8 @@ fn to_message(data: &BikeData) -> Message {
         rec.resistance = resistance;
     }
     if let Some(distance) = data.distance {
-        rec.distance = distance;
+        // Translate from meters (our internal unit) => centimeters (the FIT unit)
+        rec.distance = distance * 100;
     }
 
     rec.timestamp = to_fit_datetime(data.time);
