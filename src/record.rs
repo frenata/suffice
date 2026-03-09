@@ -41,7 +41,10 @@ fn to_fit(data: &mut [BikeData]) -> FIT {
 
     // NOTE: required messages and fields via
     // https://developer.garmin.com/fit/file-types/activity/
-    let total_dist: u32 = data.iter().map(|bd| bd.distance.unwrap_or_default()).sum();
+    let total_dist: u32 = data
+        .iter()
+        .map(|bd| bd.distance.unwrap_or_default() * 100)
+        .sum();
     let mut messages: Vec<Message> = data.iter().map(to_message).collect();
     messages.insert(0, Message::from(get_file_id(start)));
     messages.push(Message::from(get_activity(start)));
