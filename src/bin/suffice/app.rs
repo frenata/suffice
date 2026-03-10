@@ -387,7 +387,7 @@ mod tests {
             "╭────────────── -= It Suffices =- ───────────────╮",
             "│                  Resistance: 0                 │",
             "│                                                │",
-            "│                  Total Work: 0                 │",
+            "│               Total Work: 0.0 kJ               │",
             "│            Total Distance: 0.000 km            │",
             "│                                                │",
             "│                                                │",
@@ -401,7 +401,7 @@ mod tests {
         expected.set_style(Rect::new(15, 0, 19, 1), title_style);
         expected.set_style(Rect::new(31, 1, 1, 1), counter_style);
 
-        expected.set_style(Rect::new(31, 3, 1, 1), counter_style);
+        expected.set_style(Rect::new(28, 3, 6, 1), counter_style);
         expected.set_style(Rect::new(29, 4, 8, 1), counter_style);
 
         expected.set_style(Rect::new(18, 9, 4, 1), key_style);

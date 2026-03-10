@@ -77,7 +77,10 @@ pub(crate) fn totals(stats: &Stats) -> Paragraph<'_> {
     let dist_total = stats.distance.total();
 
     let lines = Text::from(vec![
-        Line::from(vec!["Total Work: ".into(), format!("{}", joules).yellow()]),
+        Line::from(vec![
+            "Total Work: ".into(),
+            format!("{:.1} kJ", joules as f32 / 1000.).yellow(),
+        ]),
         Line::from(vec![
             "Total Distance: ".into(),
             format!("{:.3} km", dist_total as f32 / 1000.).yellow(),
