@@ -7,9 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+Nothing yet!
+
+## [0.3.1]
+
 ### Fixed
 
-* fix: properly translate the `BikeData` internal units to the FIT file units
+* fix: properly translate the `BikeData` internal units to the FIT file units: speed and distance
+* fix: properly derive elapsed for the FIT `Session` message.
 
 ## [0.3.0]
 
