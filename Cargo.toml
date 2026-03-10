@@ -1,6 +1,6 @@
 [package]
 name = "suffice"
-version = "0.3.1"
+version = "0.4.0-dev"
 description = "Suffice is a terminal-based tool for controlling a cycling trainer, so you can pound pedals while peddling code."
 keywords = ["bluetooth", "tui", "cycling"]
 categories = ["command-line-utilities"]
