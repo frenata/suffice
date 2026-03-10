@@ -118,12 +118,25 @@ fn get_session(start: DateTime<Local>, end: DateTime<Local>, distance: u32) -> m
     let mut session = mesgdef::Session::new();
     session.timestamp = to_fit_datetime(start);
     session.start_time = to_fit_datetime(start);
-    session.total_elapsed_time = (end.timestamp() - start.timestamp()) as u32;
-    session.total_timer_time = (end.timestamp() - start.timestamp()) as u32;
+    session.total_elapsed_time = ((end.timestamp() - start.timestamp()) * 1000) as u32;
+    session.total_timer_time = ((end.timestamp() - start.timestamp()) * 1000) as u32;
     session.sport = Sport::CYCLING;
     session.sub_sport = SubSport::INDOOR_CYCLING;
     session.total_distance = distance;
     session
+}
+
+#[test]
+fn test_session() {
+    use chrono::TimeDelta;
+
+    let start = Local::now();
+    let delta = TimeDelta::hours(1);
+    let end = start + delta;
+
+    let actual = get_session(start, end, 0);
+    assert_eq!(actual.total_elapsed_time, 60 * 60 * 1000);
+    assert_eq!(actual.total_timer_time, 60 * 60 * 1000);
 }
 
 fn get_activity(start: DateTime<Local>) -> mesgdef::Activity {
