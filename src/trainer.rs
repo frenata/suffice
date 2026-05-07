@@ -77,7 +77,7 @@ impl<T: FitnessDevice + std::fmt::Debug> Trainer<T> {
                 {
                     let last = self.data[self.data.len() - 1];
                     let dt = (data.time - last.time).as_seconds_f32();
-                    let dist = (dt * (speed / 360) as f32) as u32;
+                    let dist = (dt * speed as f32 / 360.0) as u32;
                     data.distance = Some(dist);
                 }
                 self.data.push_back(data);
